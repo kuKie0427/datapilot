@@ -1,0 +1,17 @@
+# Byte-compiled
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# RAG index (regenerated on first run)
+rag_index.pkl
+
+# Spider database files (download separately)
+datasets/spider_databases/
+
+# Environment
+.env
+DEEPSEEK_API_KEY
+
+# OS
+.DS_Store
