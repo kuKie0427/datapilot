@@ -1,63 +1,171 @@
 # DataPilot
 
-面向自助查数场景的智能数据分析 Agent。用户用自然语言提问，系统自动完成"理解意图 → 检索相似案例 → 感知表结构 → 生成 SQL → 执行验证"全链路，最终返回查询结果。
+面向非技术业务人员的自然语言查数 Agent。用户用中文提问，系统自动完成"意图解析 → RAG 检索 → Schema 感知生成 → 执行校验"全链路，最终返回数据结果或可视化图表。
 
 ## 架构
 
 ```
-question
-  |
-  +-- 1. Schema Indexing (tables.json with FK relationships)
-  +-- 2. RAG Retrieval (sentence-embedding over 7k examples, top-3)
-  |
-  +-- 3. LLM Generation (DeepSeek v4 Flash with thinking mode)
-  |     |
-  |     +-- success -> return SQL
-  |     +-- failure -> multi-candidate sampling + execution voting
-  |
-  +-- 4. SQL output
+用户提问
+  │
+  ▼
+┌─────────────────────────────────────────────┐
+│  FastAPI Service Layer                       │
+│  POST /api/v1/query  ·  SSE /query/stream   │
+└──────────────────┬──────────────────────────┘
+                   │
+  ┌────────────────▼──────────────────┐
+  │  LangGraph Four-Stage Pipeline    │
+  │                                   │
+  │  1. Intent Parsing (意图解析)      │
+  │     ↓                             │
+  │  2. RAG Retrieval (向量检索)       │
+  │     sentence-embedding · Top-3    │
+  │     ↓                             │
+  │  3. Schema-Aware Generation        │
+  │     schema + few-shot → LLM       │
+  │     ↓                             │
+  │  4. Execution & Validation         │
+  │     ┌─ success → return            │
+  │     └─ failure → correction loop   │
+  │        (error-driven rewrite +     │
+  │         multi-candidate voting)    │
+  └──────────────────┬────────────────┘
+                     │
+  ┌──────────────────▼────────────────┐
+  │  Tool Calling + Adapter Pattern    │
+  │                                    │
+  │  ┌─────────┐ ┌──────┐ ┌─────────┐ │
+  │  │ SQL Adp │ │ CSV  │ │ API Adp │ │
+  │  │SQLite/  │ │Pan-  │ │RESTful  │ │
+  │  │MySQL    │ │das   │ │         │ │
+  │  └─────────┘ └──────┘ └─────────┘ │
+  │                                    │
+  │  ┌────────────┐  ┌──────────────┐  │
+  │  │ Chart Tool │  │ Sandbox Exec │  │
+  │  │ (ECharts)  │  │ (Docker)     │  │
+  │  └────────────┘  └──────────────┘  │
+  └───────────────────────────────────┘
 ```
 
-## 效果
+## 核心能力
 
-在 Spider 100 条分层测试集上（25 simple / 40 moderate / 35 challenging，覆盖 16 个数据库）：
-
-| 指标 | 整体 | Simple | Moderate | Challenging |
-|------|------|--------|----------|-------------|
-| Execution Accuracy | 78% | 84% | 82% | 66% |
+| 能力 | 说明 |
+|------|------|
+| **四阶段查询管线** | LangGraph 状态机：意图 → RAG → Schema 感知生成 → 执行校验 |
+| **错误驱动自校正** | 执行失败时裁剪错误栈，驱动 LLM 重写 + 多候选采样投票 |
+| **声明式沙箱** | LLM 生成的 Python 代码在 Docker 隔离容器中运行，无网络、限内存/CPU |
+| **多数据源适配器** | SQL(SQLite/MySQL) / CSV / API 统一接口，新增数据源仅需实现 2 个方法 |
+| **Tool Calling** | 主 Agent 通过 function calling 调用 SQL 执行、图表生成、沙箱分析 |
+| **图表自动生成** | 根据意图选择 KPI / 柱状 / 折线 / 饼图 / 表格，输出 ECharts JSON |
 
 ## 快速开始
 
 ```bash
 # 1. 设置 API Key
-export DEEPSEEK_API_KEY="sk-..."
+export LLM_API_KEY="sk-..."
 
 # 2. 安装依赖
 pip install -r requirements.txt
 
-# 3. 运行评测（Exact Match 模式）
-python -m src.evaluate
+# 3. 启动服务
+./start.sh
+# 或手动启动:
+uvicorn src.api.app:app --reload --port 8000
 
-# 4. 运行评测（Execution Accuracy 模式，需要下载 Spider 数据库）
-bash datasets/download_databases.sh
-python -m src.evaluate --execution
+# 4. 打开前端
+# 在浏览器中打开 DataPilot-Frontend-v1.html
+
+# 5. API 文档
+# http://localhost:8000/docs
 ```
+
+## Docker 部署
+
+```bash
+# 启动全部服务（API + MySQL + 沙箱）
+docker-compose up -d
+
+# 仅构建 API 镜像
+docker build -t datapilot .
+docker run -p 8000:8000 -v /var/run/docker.sock:/var/run/docker.sock datapilot
+```
+
+## API 端点
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/v1/query` | 提交自然语言查询，返回完整结果 |
+| POST | `/api/v1/query/stream` | SSE 流式返回查询过程 |
+| GET | `/api/v1/sources` | 列出所有数据源 |
+| GET | `/api/v1/sources/{id}/schema` | 获取数据源 Schema |
+| POST | `/api/v1/sources/register` | 运行时注册新数据源 |
+| POST | `/api/v1/sources/csv/upload` | 上传 CSV 文件作为数据源 |
+| GET | `/api/v1/health` | 健康检查 |
 
 ## 项目结构
 
 ```
 datapilot/
-+-- src/
-|   +-- generator.py       # SQL 生成引擎（RAG + Schema + 自校正）
-|   +-- rag_store.py        # 向量检索索引
-|   +-- evaluate.py         # 评估运行器
-|   +-- __init__.py
-+-- datasets/
-|   +-- spider_eval_100.json  # Spider 100 条分层测试集
-|   +-- download_databases.sh # Spider 数据库下载脚本
-+-- examples/
-|   +-- basic_usage.py
-+-- requirements.txt
-+-- .gitignore
-+-- README.md
+├── src/
+│   ├── api/                    # FastAPI 服务层
+│   │   ├── app.py              # 应用工厂
+│   │   ├── routes.py           # API 路由
+│   │   └── schemas.py          # Pydantic 模型
+│   ├── agent/                  # LangGraph 四阶段管线
+│   │   ├── graph.py            # 状态机构建
+│   │   ├── nodes.py            # 节点实现
+│   │   └── state.py            # 状态定义
+│   ├── datasources/            # 多数据源适配器
+│   │   ├── base.py             # 抽象适配器
+│   │   ├── sql_source.py       # SQL (SQLite/MySQL)
+│   │   ├── csv_source.py       # CSV
+│   │   ├── api_source.py       # REST API
+│   │   └── registry.py         # 数据源注册表
+│   ├── sandbox/                # Docker 沙箱引擎
+│   │   └── executor.py         # 隔离执行 + 错误栈裁剪
+│   ├── tools/                  # Tool Calling
+│   │   ├── chart_tool.py       # 图表生成 (ECharts)
+│   │   └── registry.py         # 工具注册表
+│   ├── generator.py            # 原始 SQL 生成引擎
+│   ├── rag_store.py            # 向量检索索引
+│   ├── evaluate.py             # 评估运行器
+│   └── config.py               # 集中配置
+├── datasets/                   # Spider 评测数据集
+├── examples/                   # 使用示例
+├── uploads/                    # CSV 上传目录
+├── DataPilot-Frontend-v1.html  # 前端原型
+├── Dockerfile                  # API 服务镜像
+├── docker-compose.yml          # 全栈编排
+├── start.sh                    # 快速启动脚本
+└── requirements.txt
 ```
+
+## 评测
+
+在 Spider 100 条分层测试集上：
+
+| 指标 | 整体 | Simple | Moderate | Challenging |
+|------|------|--------|----------|-------------|
+| Execution Accuracy | 78% | 84% | 82% | 66% |
+
+```bash
+# Exact Match 模式
+python -m src.evaluate
+
+# Execution Accuracy 模式
+bash datasets/download_databases.sh
+python -m src.evaluate --execution
+```
+
+## 环境变量
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `LLM_API_KEY` | — | LLM API 密钥 |
+| `LLM_BASE_URL` | `https://api.deepseek.com/v1` | LLM API 地址 |
+| `LLM_MODEL` | `deepseek-chat` | 模型名称 |
+| `SANDBOX_ENABLED` | `true` | 是否启用 Docker 沙箱 |
+| `SANDBOX_IMAGE` | `python:3.11-slim` | 沙箱镜像 |
+| `SANDBOX_TIMEOUT` | `30` | 沙箱超时（秒） |
+| `MYSQL_HOST` | `localhost` | MySQL 主机 |
+| `MYSQL_DATABASE` | — | MySQL 数据库 |

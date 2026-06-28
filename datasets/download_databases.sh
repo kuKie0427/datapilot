@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Download Spider SQLite databases for execution-based evaluation.
+# 下载 Spider SQLite 数据库，用于基于执行的评测。
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

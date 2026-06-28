@@ -9,9 +9,9 @@ EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 
 
 class RAGStore:
-    """Vector store for retrieving similar question-SQL pairs.
-    
-    Builds a searchable index over Spider training data (7k question-SQL pairs).
+    """用于检索相似 问题-SQL 对的向量存储。
+
+    基于 Spider 训练数据（7k 问题-SQL 对）构建可搜索的索引。
     """
 
     def __init__(self):

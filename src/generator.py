@@ -15,10 +15,10 @@ SELF_CONSISTENCY_TEMPERATURE = 0.3
 DB_DIR = os.environ.get("SPIDER_DB_DIR", "datasets/spider_databases/database")
 
 
-def _load_schemas(path: str = None):
+def _load_schemas(path: str = ""):
     if _SCHEMA_CACHE:
         return
-    if path is None:
+    if path == ""   :
         path = os.path.join(os.path.dirname(__file__), "..", "tables.json")
     if not os.path.exists(path):
         return
@@ -46,7 +46,7 @@ def _load_schemas(path: str = None):
             _SCHEMA_CACHE[db_id] = "\n".join(lines)
 
 
-def _get_system_prompt(question: str, db_id: str = None) -> str:
+def _get_system_prompt(question: str, db_id: str = "") -> str:
     cache_key = (question, db_id)
     if cache_key in _CACHED_SYSTEM_PROMPTS:
         return _CACHED_SYSTEM_PROMPTS[cache_key]
@@ -77,7 +77,7 @@ def _get_system_prompt(question: str, db_id: str = None) -> str:
     return system
 
 
-def _call_llm(question: str, db_id: str = None, system_prompt: str = None, temperature: float = 0.0) -> str:
+def _call_llm(question: str,  system_prompt: str = "", temperature: float = 0.0) -> str:
     user = f"Generate a SQL query for: {question}"
     client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
     resp = client.chat.completions.create(
@@ -88,9 +88,10 @@ def _call_llm(question: str, db_id: str = None, system_prompt: str = None, tempe
         ],
         temperature=temperature,
         max_tokens=1000,
-        # thinking enabled by default on DeepSeek
+        # DeepSeek 默认启用 thinking
     )
-    sql = resp.choices[0].message.content.strip()
+    if resp.choices[0].message.content is not None:
+        sql = resp.choices[0].message.content.strip()
     if sql.startswith("```"):
         sql = sql.split("\n", 1)[-1] if "\n" in sql else sql
         sql = sql.rsplit("```", 1)[0] if "```" in sql else sql
@@ -112,7 +113,7 @@ def _execute_and_get_result_hash(sql: str, db_id: str):
         return (None, str(e))
 
 
-def generate_sql(question: str, db_id: str = None) -> str:
+def generate_sql(question: str, db_id: str = "") -> str:
     if not API_KEY:
         return "-- Set DEEPSEEK_API_KEY environment variable"
 
@@ -122,9 +123,9 @@ def generate_sql(question: str, db_id: str = None) -> str:
     system_prompt = _get_system_prompt(question, db_id)
 
     if not db_id:
-        return _call_llm(question, db_id, system_prompt)
+        return _call_llm(question, system_prompt)
 
-    greedy_sql = _call_llm(question, db_id, system_prompt)
+    greedy_sql = _call_llm(question, system_prompt)
     greedy_hash, greedy_err = _execute_and_get_result_hash(greedy_sql, db_id)
 
     if greedy_err is None and greedy_hash is not None:
@@ -132,7 +133,7 @@ def generate_sql(question: str, db_id: str = None) -> str:
 
     candidates = [("greedy", greedy_sql)]
     for i in range(SELF_CONSISTENCY_N - 1):
-        sql = _call_llm(question, db_id, system_prompt, temperature=SELF_CONSISTENCY_TEMPERATURE)
+        sql = _call_llm(question, system_prompt, temperature=SELF_CONSISTENCY_TEMPERATURE)
         if sql.strip():
             candidates.append((f"sample-{i}", sql))
 
@@ -146,7 +147,7 @@ def generate_sql(question: str, db_id: str = None) -> str:
             sql_by_hash[key] = sql
 
     if results_by_hash:
-        winner_key = max(results_by_hash, key=results_by_hash.get)
+        winner_key = max(results_by_hash, key=lambda k: results_by_hash[k])
         return sql_by_hash.get(winner_key, greedy_sql)
 
     return greedy_sql

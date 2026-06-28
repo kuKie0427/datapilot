@@ -1,0 +1,65 @@
+version: "3.8"
+
+services:
+  # DataPilot API 服务
+  datapilot:
+    build: .
+    container_name: datapilot-api
+    ports:
+      - "8000:8000"
+    environment:
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - LLM_BASE_URL=${LLM_BASE_URL:-https://api.deepseek.com/v1}
+      - LLM_MODEL=${LLM_MODEL:-deepseek-chat}
+      - SANDBOX_ENABLED=true
+      - SANDBOX_IMAGE=python:3.11-slim
+      - SANDBOX_TIMEOUT=30
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_USER=${MYSQL_USER:-root}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-}
+    volumes:
+      - ./:/app
+      - /var/run/docker.sock:/var/run/docker.sock  # 用于沙箱容器
+      - ./uploads:/app/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - datapilot-net
+
+  # MySQL 数据源（可选）
+  mysql:
+    image: mysql:8.0
+    container_name: datapilot-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-datapilot}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-ecommerce}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - datapilot-net
+
+  # 沙箱镜像（预装 pandas 等依赖）
+  # 由 SandboxExecutor 用于运行 LLM 生成的 Python 代码
+  sandbox:
+    image: python:3.11-slim
+    container_name: datapilot-sandbox-base
+    command: echo "Sandbox base image ready"
+    networks:
+      - datapilot-net
+
+volumes:
+  mysql-data:
+
+networks:
+  datapilot-net:
+    driver: bridge

@@ -62,7 +62,7 @@ def load_dataset(path: str):
 def run_evaluation(
     generator_fn: Callable,
     dataset_path: str = "datasets/spider_eval_100.json",
-    db_dir: str = None,
+    db_dir: str = "",
     use_execution: bool = False,
 ):
     dataset = load_dataset(dataset_path)
@@ -134,7 +134,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="DataPilot Evaluation Runner")
     parser.add_argument("--dataset", default="datasets/spider_eval_100.json")
     parser.add_argument("--execution", action="store_true")
-    parser.add_argument("--db-dir", default=None)
+    parser.add_argument("--db-dir", default="")
     args = parser.parse_args()
 
     sys.path.insert(0, os.path.dirname(__file__))

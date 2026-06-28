@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DataPilot — 智能数据查数</title>
+  <style>
+    :root {
+      --bg: #0B0C0F;
+      --surface-1: #13151A;
+      --surface-2: #1A1C23;
+      --surface-3: #22252D;
+      --hairline: rgba(255, 255, 255, 0.07);
+      --text-primary: #F3F4F6;
+      --text-secondary: #9CA3AF;
+      --text-muted: #6B7280;
+      --accent: #4F6AF5;
+      --accent-hover: #5E7BFF;
+      --accent-soft: rgba(79, 106, 245, 0.12);
+      --success: #22C55E;
+      --warning: #F59E0B;
+      --danger: #EF4444;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+      --font-sans: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+      --font-mono: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text-primary);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+
+    /* Sidebar */
+    .sidebar {
+      width: 260px;
+      background: var(--surface-1);
+      border-right: 1px solid var(--hairline);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .brand {
+      padding: 18px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--hairline);
+    }
+    .brand-mark {
+      width: 28px; height: 28px;
+      border-radius: var(--radius-md);
+      background: var(--accent);
+      display: grid; place-items: center;
+      font-weight: 700; color: white; font-size: 13px;
+    }
+    .brand-name { font-weight: 600; font-size: 15px; letter-spacing: -0.01em; }
+    .sidebar-section { padding: 14px 16px; }
+    .sidebar-title {
+      font-size: 11px; font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 10px;
+      padding: 0 4px;
+    }
+    .history-item {
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: background 0.15s ease;
+      margin-bottom: 4px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .history-item:hover { background: var(--surface-2); }
+    .history-item.active { background: var(--accent-soft); }
+    .history-q {
+      color: var(--text-primary);
+      font-size: 13px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .history-meta {
+      display: flex; align-items: center; gap: 8px;
+      color: var(--text-muted); font-size: 11px;
+    }
+    .history-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+
+    /* Main */
+    .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+    /* Header */
+    .header {
+      height: 60px;
+      background: var(--surface-1);
+      border-bottom: 1px solid var(--hairline);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 24px;
+      flex-shrink: 0;
+    }
+    .header-left { display: flex; align-items: center; gap: 16px; }
+    .header-right { display: flex; align-items: center; gap: 14px; }
+    .source-selector {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--surface-2);
+      border: 1px solid var(--hairline);
+      padding: 8px 12px;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      font-size: 13px;
+      transition: border-color 0.15s ease;
+    }
+    .source-selector:hover { border-color: rgba(255,255,255,0.18); }
+    .source-icon { width: 18px; height: 18px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-size: 10px; }
+    .source-chevron { color: var(--text-muted); font-size: 11px; margin-left: 4px; }
+    .connection-status {
+      display: flex; align-items: center; gap: 6px;
+      color: var(--success); font-size: 12px;
+    }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); box-shadow: 0 0 6px var(--success); }
+    .avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--surface-3); display: grid; place-items: center; color: var(--text-secondary); font-size: 12px; border: 1px solid var(--hairline); }
+
+    /* Content */
+    .content { flex: 1; overflow-y: auto; position: relative; }
+    .content-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 28px 140px;
+    }
+
+    /* Empty / Welcome */
+    .welcome { text-align: center; padding: 60px 0 40px; }
+    .welcome h1 { font-size: 28px; font-weight: 600; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .welcome p { color: var(--text-secondary); font-size: 15px; margin: 0; }
+    .quick-questions {
+      display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;
+      margin-top: 28px;
+    }
+    .quick-chip {
+      background: var(--surface-2);
+      border: 1px solid var(--hairline);
+      color: var(--text-secondary);
+      padding: 10px 16px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.15s ease;
+    }
+    .quick-chip:hover { border-color: rgba(255,255,255,0.18); color: var(--text-primary); background: var(--surface-3); }
+
+    /* Input area */
+    .input-dock {
+      position: fixed;
+      bottom: 0; left: 260px; right: 0;
+      padding: 16px 28px 24px;
+      background: linear-gradient(to top, var(--bg) 70%, transparent);
+      z-index: 10;
+    }
+    .input-container {
+      max-width: 1100px; margin: 0 auto;
+      background: var(--surface-2);
+      border: 1px solid var(--hairline);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+      transition: border-color 0.15s ease;
+    }
+    .input-container:focus-within { border-color: rgba(79,106,245,0.5); }
+    .input-field {
+      width: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-primary);
+      font-size: 15px;
+      resize: none;
+      min-height: 24px;
+      max-height: 120px;
+      font-family: inherit;
+      line-height: 1.5;
+    }
+    .input-field::placeholder { color: var(--text-muted); }
+    .input-actions {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 10px;
+    }
+    .input-hint { color: var(--text-muted); font-size: 12px; }
+    .input-hint kbd {
+      background: var(--surface-3);
+      border: 1px solid var(--hairline);
+      border-radius: 4px;
+      padding: 2px 5px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+    .send-btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      width: 32px; height: 32px;
+      border-radius: var(--radius-md);
+      display: grid; place-items: center;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .send-btn:hover { background: var(--accent-hover); }
+    .send-btn svg { width: 16px; height: 16px; }
+
+    /* Result area */
+    .result-block { margin-top: 24px; }
+    .result-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .result-title {
+      font-size: 15px; font-weight: 600;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .result-actions { display: flex; gap: 8px; }
+    .icon-btn {
+      background: var(--surface-2);
+      border: 1px solid var(--hairline);
+      color: var(--text-secondary);
+      padding: 7px 10px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 12px;
+      display: flex; align-items: center; gap: 5px;
+      transition: all 0.15s ease;
+    }
+    .icon-btn:hover { color: var(--text-primary); border-color: rgba(255,255,255,0.18); }
+    .icon-btn.active { background: var(--accent-soft); color: var(--accent); border-color: rgba(79,106,245,0.3); }
+
+    /* Reasoning steps */
+    .reasoning {
+      background: var(--surface-1);
+      border: 1px solid var(--hairline);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .reasoning-toggle {
+      width: 100%;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px;
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 13px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .reasoning-toggle:hover { color: var(--text-primary); }
+    .reasoning-body { padding: 0 16px 16px; }
+    .step-list { display: flex; flex-direction: column; gap: 8px; }
+    .step {
+      display: flex; align-items: center; gap: 12px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    .step.done { color: var(--text-primary); }
+    .step-icon {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      display: grid; place-items: center;
+      font-size: 10px;
+      flex-shrink: 0;
+    }
+    .step-icon.done { background: var(--success); color: white; }
+    .step-icon.pending { background: var(--surface-3); color: var(--text-muted); border: 1px solid var(--hairline); }
+    .step-icon.running { background: var(--accent-soft); color: var(--accent); border: 1px solid rgba(79,106,245,0.3); }
+
+    /* KPI cards */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .kpi-card {
+      background: var(--surface-1);
+      border: 1px solid var(--hairline);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+    }
+    .kpi-label { color: var(--text-muted); font-size: 12px; margin-bottom: 8px; }
+    .kpi-value { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; }
+    .kpi-change {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--success);
+      display: flex; align-items: center; gap: 4px;
+    }
+
+    /* Chart placeholder */
+    .chart-card {
+      background: var(--surface-1);
+      border: 1px solid var(--hairline);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      margin-bottom: 16px;
+      height: 320px;
+      display: flex; flex-direction: column;
+    }
+    .chart-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 16px;
+    }
+    .chart-title { font-weight: 600; font-size: 14px; }
+    .chart-body { flex: 1; display: flex; align-items: flex-end; gap: 12px; padding: 10px 0 20px; }
+    .bar {
+      flex: 1;
+      background: var(--accent);
+      border-radius: 4px 4px 0 0;
+      min-height: 20px;
+      opacity: 0.85;
+      transition: opacity 0.15s ease;
+      position: relative;
+    }
+    .bar:hover { opacity: 1; }
+    .bar-label {
+      position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%);
+      font-size: 11px; color: var(--text-muted); white-space: nowrap;
+    }
+
+    /* Data table */
+    .table-card {
+      background: var(--surface-1);
+      border: 1px solid var(--hairline);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .table-toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--hairline);
+    }
+    .table-count { color: var(--text-muted); font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--hairline); }
+    th { color: var(--text-muted); font-weight: 500; font-size: 12px; background: var(--surface-2); }
+    td { color: var(--text-primary); }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .cell-num { font-family: var(--font-mono); color: var(--text-secondary); }
+
+    /* SQL view */
+    .sql-block {
+      background: var(--surface-2);
+      border: 1px solid var(--hairline);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      margin-top: 16px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-secondary);
+      overflow-x: auto;
+      white-space: pre;
+    }
+
+    /* Follow-up */
+    .followup {
+      margin-top: 20px;
+      display: flex; gap: 10px; flex-wrap: wrap;
+    }
+    .followup-chip {
+      background: transparent;
+      border: 1px dashed var(--hairline);
+      color: var(--text-secondary);
+      padding: 8px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.15s ease;
+    }
+    .followup-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+    /* Feedback */
+    .feedback {
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid var(--hairline);
+      display: flex; align-items: center; justify-content: space-between;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+    .feedback-actions { display: flex; gap: 8px; }
+
+    /* Loading state */
+    .thinking {
+      display: flex; align-items: center; gap: 12px;
+      padding: 20px;
+      color: var(--text-secondary);
+    }
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid var(--surface-3);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Tweaks panel */
+    .tweaks {
+      position: fixed;
+      bottom: 100px; right: 24px;
+      background: var(--surface-2);
+      border: 1px solid var(--hairline);
+      border-radius: var(--radius-lg);
+      padding: 14px;
+      width: 220px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+      z-index: 50;
+    }
+    .tweaks h4 { margin: 0 0 12px; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .tweak-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 12px; color: var(--text-secondary); }
+    .tweak-row:last-child { margin-bottom: 0; }
+    .toggle {
+      width: 36px; height: 20px;
+      background: var(--surface-3);
+      border-radius: 999px;
+      position: relative;
+      cursor: pointer;
+      border: 1px solid var(--hairline);
+      transition: background 0.15s ease;
+    }
+    .toggle.on { background: var(--accent); }
+    .toggle::after {
+      content: "";
+      position: absolute;
+      top: 2px; left: 2px;
+      width: 14px; height: 14px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.15s ease;
+    }
+    .toggle.on::after { transform: translateX(16px); }
+
+    /* Hidden helpers */
+    .hidden { display: none !important; }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .sidebar { display: none; }
+      .input-dock { left: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar: history & saved queries -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">DP</div>
+      <div class="brand-name">DataPilot</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">新会话</div>
+      <div class="history-item active" onclick="loadScenario('welcome')">
+        <div class="history-q">开始新的查数</div>
+        <div class="history-meta"><span>今天</span></div>
+      </div>
+    </div>
+    <div class="sidebar-section" style="flex:1; overflow-y:auto;">
+      <div class="sidebar-title">最近查询</div>
+      <div class="history-item" onclick="loadScenario('kpi')">
+        <div class="history-q">上个月总销售额是多少？</div>
+        <div class="history-meta"><span class="history-dot"></span><span>2 分钟前</span></div>
+      </div>
+      <div class="history-item" onclick="loadScenario('table')">
+        <div class="history-q">各城市订单量排名</div>
+        <div class="history-meta"><span class="history-dot"></span><span>1 小时前</span></div>
+      </div>
+      <div class="history-item" onclick="loadScenario('chart')">
+        <div class="history-q">近 7 天活跃用户数趋势</div>
+        <div class="history-meta"><span class="history-dot"></span><span>昨天</span></div>
+      </div>
+    </div>
+    <div class="sidebar-section" style="border-top:1px solid var(--hairline);">
+      <div class="sidebar-title">收藏</div>
+      <div class="history-item">
+        <div class="history-q">月度核心指标看板</div>
+        <div class="history-meta"><span>已收藏</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main area -->
+  <main class="main">
+    <!-- Header: data source & context -->
+    <header class="header">
+      <div class="header-left">
+        <div class="source-selector" onclick="toggleSource()">
+          <div class="source-icon">DB</div>
+          <span>电商业务数据库</span>
+          <span class="source-chevron">▼</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="connection-status"><span class="status-dot"></span>连接正常</div>
+        <button class="icon-btn" title="帮助">?</button>
+        <div class="avatar">U</div>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <div class="content" id="content">
+      <div class="content-inner">
+
+        <!-- Welcome state -->
+        <div id="view-welcome" class="view">
+          <div class="welcome">
+            <h1>今天想查什么数据？</h1>
+            <p>用中文直接描述你的问题，DataPilot 会自动生成查询并返回结果。</p>
+            <div class="quick-questions">
+              <button class="quick-chip" onclick="ask('上个月总销售额是多少？')">上个月总销售额是多少？</button>
+              <button class="quick-chip" onclick="ask('各城市订单量排名')">各城市订单量排名</button>
+              <button class="quick-chip" onclick="ask('近 7 天活跃用户数趋势')">近 7 天活跃用户数趋势</button>
+              <button class="quick-chip" onclick="ask('复购率最高的商品 Top 10')">复购率最高的商品 Top 10</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Loading / thinking state -->
+        <div id="view-thinking" class="view hidden">
+          <div class="thinking">
+            <div class="spinner"></div>
+            <span>正在理解问题并生成查询…</span>
+          </div>
+        </div>
+
+        <!-- KPI result state -->
+        <div id="view-kpi" class="view hidden">
+          <div class="result-block">
+            <div class="result-header">
+              <div class="result-title">上个月总销售额</div>
+              <div class="result-actions">
+                <button class="icon-btn active">KPI</button>
+                <button class="icon-btn" onclick="loadScenario('chart')">图表</button>
+                <button class="icon-btn" onclick="loadScenario('table')">表格</button>
+                <button class="icon-btn">导出 CSV</button>
+              </div>
+            </div>
+
+            <div class="reasoning">
+              <button class="reasoning-toggle" onclick="toggleReasoning(this)">
+                <span>查看查询过程</span>
+                <span>▼</span>
+              </button>
+              <div class="reasoning-body hidden">
+                <div class="step-list">
+                  <div class="step done"><div class="step-icon done">✓</div>识别意图：聚合查询 — 按月份统计销售额</div>
+                  <div class="step done"><div class="step-icon done">✓</div>匹配相似示例：3 个 few-shot 案例</div>
+                  <div class="step done"><div class="step-icon done">✓</div>Schema 感知：使用 orders.total_amount 字段</div>
+                  <div class="step done"><div class="step-icon done">✓</div>生成并执行 SQL</div>
+                  <div class="step done"><div class="step-icon done">✓</div>结果校验通过</div>
+                </div>
+                <div class="sql-block">SELECT SUM(total_amount) AS sales
+FROM orders
+WHERE created_at >= '2026-05-01'
+  AND created_at < '2026-06-01';</div>
+              </div>
+            </div>
+
+            <div class="kpi-grid">
+              <div class="kpi-card">
+                <div class="kpi-label">总销售额</div>
+                <div class="kpi-value">¥1,284,590</div>
+                <div class="kpi-change">+12.4% 环比</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">订单数</div>
+                <div class="kpi-value">3,842</div>
+                <div class="kpi-change">+5.1% 环比</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">客单价</div>
+                <div class="kpi-value">¥334.3</div>
+                <div class="kpi-change" style="color:var(--danger);">-2.3% 环比</div>
+              </div>
+            </div>
+
+            <div class="followup">
+              <button class="followup-chip" onclick="ask('按渠道拆分销售额')">按渠道拆分销售额</button>
+              <button class="followup-chip" onclick="ask('和去年同期对比')">和去年同期对比</button>
+              <button class="followup-chip" onclick="ask('Top 10 热销商品')">Top 10 热销商品</button>
+            </div>
+
+            <div class="feedback">
+              <span>结果对你有帮助吗？</span>
+              <div class="feedback-actions">
+                <button class="icon-btn">有帮助</button>
+                <button class="icon-btn">不准确</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chart result state -->
+        <div id="view-chart" class="view hidden">
+          <div class="result-block">
+            <div class="result-header">
+              <div class="result-title">近 7 天活跃用户数趋势</div>
+              <div class="result-actions">
+                <button class="icon-btn" onclick="loadScenario('kpi')">KPI</button>
+                <button class="icon-btn active">图表</button>
+                <button class="icon-btn" onclick="loadScenario('table')">表格</button>
+                <button class="icon-btn">导出 PNG</button>
+              </div>
+            </div>
+
+            <div class="reasoning">
+              <button class="reasoning-toggle" onclick="toggleReasoning(this)">
+                <span>查看查询过程</span>
+                <span>▼</span>
+              </button>
+              <div class="reasoning-body hidden">
+                <div class="step-list">
+                  <div class="step done"><div class="step-icon done">✓</div>识别时间范围：最近 7 天</div>
+                  <div class="step done"><div class="step-icon done">✓</div>按天聚合去重用户数</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="chart-card">
+              <div class="chart-header">
+                <div class="chart-title">日活跃用户（DAU）</div>
+                <div class="result-actions">
+                  <button class="icon-btn active">柱状</button>
+                  <button class="icon-btn">折线</button>
+                  <button class="icon-btn">饼图</button>
+                </div>
+              </div>
+              <div class="chart-body">
+                <div class="bar" style="height: 45%"><span class="bar-label">06-19</span></div>
+                <div class="bar" style="height: 62%"><span class="bar-label">06-20</span></div>
+                <div class="bar" style="height: 55%"><span class="bar-label">06-21</span></div>
+                <div class="bar" style="height: 78%"><span class="bar-label">06-22</span></div>
+                <div class="bar" style="height: 70%"><span class="bar-label">06-23</span></div>
+                <div class="bar" style="height: 85%"><span class="bar-label">06-24</span></div>
+                <div class="bar" style="height: 92%"><span class="bar-label">06-25</span></div>
+              </div>
+            </div>
+
+            <div class="followup">
+              <button class="followup-chip" onclick="ask('按城市看活跃用户分布')">按城市看活跃用户分布</button>
+              <button class="followup-chip" onclick="ask('和上周对比')">和上周对比</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Table result state -->
+        <div id="view-table" class="view hidden">
+          <div class="result-block">
+            <div class="result-header">
+              <div class="result-title">各城市订单量排名</div>
+              <div class="result-actions">
+                <button class="icon-btn" onclick="loadScenario('kpi')">KPI</button>
+                <button class="icon-btn" onclick="loadScenario('chart')">图表</button>
+                <button class="icon-btn active">表格</button>
+                <button class="icon-btn">导出 CSV</button>
+              </div>
+            </div>
+
+            <div class="table-card">
+              <div class="table-toolbar">
+                <div class="table-count">共 10 个城市</div>
+                <div class="result-actions">
+                  <button class="icon-btn">排序</button>
+                  <button class="icon-btn">筛选</button>
+                </div>
+              </div>
+              <table>
+                <thead>
+                  <tr><th>城市</th><th>订单量</th><th>销售额</th><th>占比</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>上海</td><td class="cell-num">1,245</td><td class="cell-num">¥482,300</td><td>37.5%</td></tr>
+                  <tr><td>北京</td><td class="cell-num">982</td><td class="cell-num">¥356,120</td><td>27.7%</td></tr>
+                  <tr><td>深圳</td><td class="cell-num">643</td><td class="cell-num">¥214,580</td><td>16.7%</td></tr>
+                  <tr><td>广州</td><td class="cell-num">421</td><td class="cell-num">¥138,940</td><td>10.8%</td></tr>
+                  <tr><td>杭州</td><td class="cell-num">312</td><td class="cell-num">¥92,650</td><td>7.2%</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="sql-block">SELECT city, COUNT(*) AS orders, SUM(total_amount) AS sales
+FROM orders
+GROUP BY city
+ORDER BY orders DESC
+LIMIT 10;</div>
+
+            <div class="followup">
+              <button class="followup-chip" onclick="ask('华东区城市详情')">华东区城市详情</button>
+              <button class="followup-chip" onclick="ask('各城市客单价对比')">各城市客单价对比</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Input dock -->
+    <div class="input-dock">
+      <div class="input-container">
+        <textarea class="input-field" id="questionInput" rows="1" placeholder="例如：上个月各渠道销售额是多少？"></textarea>
+        <div class="input-actions">
+          <div class="input-hint">按 <kbd>Enter</kbd> 发送，<kbd>Shift + Enter</kbd> 换行</div>
+          <button class="send-btn" onclick="submitQuestion()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Tweaks panel -->
+  <div class="tweaks">
+    <h4>Tweaks</h4>
+    <div class="tweak-row">
+      <span>显示查询过程</span>
+      <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+    </div>
+    <div class="tweak-row">
+      <span>自动展开图表</span>
+      <div class="toggle" onclick="this.classList.toggle('on')"></div>
+    </div>
+    <div class="tweak-row">
+      <span>深色模式</span>
+      <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+    </div>
+  </div>
+
+  <script>
+    function loadScenario(name) {
+      document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
+      document.getElementById('view-' + name).classList.remove('hidden');
+      // Update active history item
+      document.querySelectorAll('.history-item').forEach(el => el.classList.remove('active'));
+      // simple heuristic
+      const map = { welcome: 0, kpi: 1, table: 2, chart: 3 };
+      const idx = map[name] ?? 0;
+      document.querySelectorAll('.history-item')[idx]?.classList.add('active');
+    }
+
+    function ask(text) {
+      const input = document.getElementById('questionInput');
+      input.value = text;
+      submitQuestion();
+    }
+
+    function submitQuestion() {
+      const input = document.getElementById('questionInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      loadScenario('thinking');
+      input.value = '';
+
+      setTimeout(() => {
+        if (text.includes('销售额') && !text.includes('排名') && !text.includes('渠道')) {
+          loadScenario('kpi');
+        } else if (text.includes('趋势') || text.includes('活跃')) {
+          loadScenario('chart');
+        } else {
+          loadScenario('table');
+        }
+      }, 1200);
+    }
+
+    function toggleReasoning(btn) {
+      const body = btn.nextElementSibling;
+      body.classList.toggle('hidden');
+      const arrow = btn.querySelector('span:last-child');
+      arrow.textContent = body.classList.contains('hidden') ? '▼' : '▲';
+    }
+
+    function toggleSource() {
+      alert('数据源选择弹窗：电商业务数据库 / 用户行为数仓 / CSV 上传 / API 接入');
+    }
+
+    document.getElementById('questionInput').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        submitQuestion();
+      }
+    });
+  </script>
+</body>
+</html>

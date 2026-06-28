@@ -1,9 +1,9 @@
-"""DataPilot quickstart: generate SQL from natural language."""
+"""DataPilot 快速入门：从自然语言生成 SQL。"""
 
 import os
 from src.generator import generate_sql
 
-os.environ["DEEPSEEK_API_KEY"] = "sk-..."  # set your key here
+os.environ["DEEPSEEK_API_KEY"] = "sk-..."  # 在此处设置你的 key
 
 questions = [
     "How many templates do we have?",
