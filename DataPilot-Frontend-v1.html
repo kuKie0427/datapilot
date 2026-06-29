@@ -672,7 +672,7 @@
     /* Offline banner */
     .offline-banner {
       position: fixed;
-      top: var(--header-height);
+      top: 0;
       left: var(--sidebar-width); right: 0;
       background: var(--danger);
       color: white;
@@ -978,294 +978,41 @@
           </div>
         </div>
 
-        <!-- KPI result state -->
-        <div id="view-kpi" class="view hidden">
-          <div class="result-block">
+        <!-- Dynamic result state -->
+        <div id="view-result" class="view hidden">
+          <div class="result-block" id="resultBlock">
             <div class="result-header">
-              <div class="result-title">上个月总销售额</div>
-              <div class="result-actions">
-                <button class="icon-btn active">KPI</button>
-                <button class="icon-btn" onclick="loadScenario('chart')">图表</button>
-                <button class="icon-btn" onclick="loadScenario('table')">表格</button>
+              <div class="result-title" id="resultTitle">查询结果</div>
+              <div class="result-actions" id="resultActions">
+                <button class="icon-btn" id="btnKpi" onclick="setDisplayMode('kpi')">KPI</button>
+                <button class="icon-btn" id="btnChart" onclick="setDisplayMode('chart')">图表</button>
+                <button class="icon-btn" id="btnTable" onclick="setDisplayMode('table')">表格</button>
                 <button class="icon-btn" onclick="exportData('CSV')">导出 CSV</button>
               </div>
             </div>
 
-            <div class="reasoning">
+            <div class="reasoning" id="reasoningPanel">
               <button class="reasoning-toggle" onclick="toggleReasoning(this)">
                 <span>查看查询过程</span>
                 <span>▼</span>
               </button>
-              <div class="reasoning-body hidden">
-                <div class="step-list">
-                  <div class="step done"><div class="step-icon done">✓</div>识别意图：聚合查询 — 按月份统计销售额</div>
-                  <div class="step done"><div class="step-icon done">✓</div>匹配相似示例：3 个 few-shot 案例</div>
-                  <div class="step done"><div class="step-icon done">✓</div>Schema 感知：使用 orders.total_amount 字段</div>
-                  <div class="step done"><div class="step-icon done">✓</div>生成并执行 SQL</div>
-                  <div class="step done"><div class="step-icon done">✓</div>结果校验通过</div>
-                </div>
-                <div class="sql-block">SELECT SUM(total_amount) AS sales
-FROM orders
-WHERE created_at >= '2026-05-01'
-  AND created_at < '2026-06-01';
+              <div class="reasoning-body hidden" id="reasoningBody">
+                <div class="step-list" id="stepList"></div>
+                <div class="sql-block" id="sqlBlock">
                   <button class="icon-btn sql-copy" onclick="copySql(this)">复制</button>
                 </div>
               </div>
             </div>
 
-            <div class="kpi-grid">
-              <div class="kpi-card">
-                <div class="kpi-label">总销售额</div>
-                <div class="kpi-value">¥1,284,590</div>
-                <div class="kpi-change">+12.4% 环比</div>
-              </div>
-              <div class="kpi-card">
-                <div class="kpi-label">订单数</div>
-                <div class="kpi-value">3,842</div>
-                <div class="kpi-change">+5.1% 环比</div>
-              </div>
-              <div class="kpi-card">
-                <div class="kpi-label">客单价</div>
-                <div class="kpi-value">¥334.3</div>
-                <div class="kpi-change" style="color:var(--danger);">-2.3% 环比</div>
-              </div>
-            </div>
+            <div id="resultContent"></div>
 
-            <div class="followup">
-              <button class="followup-chip" onclick="ask('按渠道拆分销售额')">按渠道拆分销售额</button>
-              <button class="followup-chip" onclick="ask('和去年同期对比')">和去年同期对比</button>
-              <button class="followup-chip" onclick="ask('Top 10 热销商品')">Top 10 热销商品</button>
-            </div>
+            <div class="followup" id="followupChips"></div>
 
-            <div class="feedback">
+            <div class="feedback" id="resultFeedback">
               <span>结果对你有帮助吗？</span>
               <div class="feedback-actions">
                 <button class="icon-btn" onclick="showToast('感谢反馈', 'success')">有帮助</button>
                 <button class="icon-btn" onclick="showToast('已记录，我们会继续优化', 'info')">不准确</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Chart result state -->
-        <div id="view-chart" class="view hidden">
-          <div class="result-block">
-            <div class="result-header">
-              <div class="result-title">近 7 天活跃用户数趋势</div>
-              <div class="result-actions">
-                <button class="icon-btn" onclick="loadScenario('kpi')">KPI</button>
-                <button class="icon-btn active">图表</button>
-                <button class="icon-btn" onclick="loadScenario('table')">表格</button>
-                <button class="icon-btn" onclick="exportData('PNG')">导出 PNG</button>
-              </div>
-            </div>
-
-            <div class="reasoning">
-              <button class="reasoning-toggle" onclick="toggleReasoning(this)">
-                <span>查看查询过程</span>
-                <span>▼</span>
-              </button>
-              <div class="reasoning-body hidden">
-                <div class="step-list">
-                  <div class="step done"><div class="step-icon done">✓</div>识别时间范围：最近 7 天</div>
-                  <div class="step done"><div class="step-icon done">✓</div>按天聚合去重用户数</div>
-                </div>
-                <div class="sql-block">SELECT DATE(created_at) AS day, COUNT(DISTINCT user_id) AS dau
-FROM user_events
-WHERE created_at >= DATE('now', '-7 days')
-GROUP BY day
-ORDER BY day;
-                  <button class="icon-btn sql-copy" onclick="copySql(this)">复制</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="chart-card">
-              <div class="chart-header">
-                <div class="chart-title">日活跃用户（DAU）</div>
-                <div class="result-actions">
-                  <button class="icon-btn active">柱状</button>
-                  <button class="icon-btn">折线</button>
-                  <button class="icon-btn">饼图</button>
-                </div>
-              </div>
-              <div class="chart-body">
-                <div class="bar" style="height: 45%"><span class="bar-tooltip">DAU: 4,230</span><span class="bar-label">06-19</span></div>
-                <div class="bar" style="height: 62%"><span class="bar-tooltip">DAU: 5,810</span><span class="bar-label">06-20</span></div>
-                <div class="bar" style="height: 55%"><span class="bar-tooltip">DAU: 5,160</span><span class="bar-label">06-21</span></div>
-                <div class="bar" style="height: 78%"><span class="bar-tooltip">DAU: 7,320</span><span class="bar-label">06-22</span></div>
-                <div class="bar" style="height: 70%"><span class="bar-tooltip">DAU: 6,570</span><span class="bar-label">06-23</span></div>
-                <div class="bar" style="height: 85%"><span class="bar-tooltip">DAU: 7,980</span><span class="bar-label">06-24</span></div>
-                <div class="bar" style="height: 92%"><span class="bar-tooltip">DAU: 8,640</span><span class="bar-label">06-25</span></div>
-              </div>
-            </div>
-
-            <div class="followup">
-              <button class="followup-chip" onclick="ask('按城市看活跃用户分布')">按城市看活跃用户分布</button>
-              <button class="followup-chip" onclick="ask('和上周对比')">和上周对比</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Table result state -->
-        <div id="view-table" class="view hidden">
-          <div class="result-block">
-            <div class="result-header">
-              <div class="result-title">各城市订单量排名</div>
-              <div class="result-actions">
-                <button class="icon-btn" onclick="loadScenario('kpi')">KPI</button>
-                <button class="icon-btn" onclick="loadScenario('chart')">图表</button>
-                <button class="icon-btn active">表格</button>
-                <button class="icon-btn" onclick="exportData('CSV')">导出 CSV</button>
-              </div>
-            </div>
-
-            <div class="reasoning">
-              <button class="reasoning-toggle" onclick="toggleReasoning(this)">
-                <span>查看查询过程</span>
-                <span>▼</span>
-              </button>
-              <div class="reasoning-body hidden">
-                <div class="step-list">
-                  <div class="step done"><div class="step-icon done">✓</div>识别分组维度：城市</div>
-                  <div class="step done"><div class="step-icon done">✓</div>聚合订单量与销售额</div>
-                </div>
-              </div>
-            </div>
-
-            <div class="table-card">
-              <div class="table-toolbar">
-                <div class="table-count">共 10 个城市</div>
-                <div class="result-actions">
-                  <button class="icon-btn">排序</button>
-                  <button class="icon-btn">筛选</button>
-                </div>
-              </div>
-              <div class="table-scroll">
-                <table>
-                  <thead>
-                    <tr><th>城市</th><th>订单量</th><th>销售额</th><th>占比</th></tr>
-                  </thead>
-                  <tbody>
-                    <tr><td>上海</td><td class="cell-num">1,245</td><td class="cell-num">¥482,300</td><td>37.5%</td></tr>
-                    <tr><td>北京</td><td class="cell-num">982</td><td class="cell-num">¥356,120</td><td>27.7%</td></tr>
-                    <tr><td>深圳</td><td class="cell-num">643</td><td class="cell-num">¥214,580</td><td>16.7%</td></tr>
-                    <tr><td>广州</td><td class="cell-num">421</td><td class="cell-num">¥138,940</td><td>10.8%</td></tr>
-                    <tr><td>杭州</td><td class="cell-num">312</td><td class="cell-num">¥92,650</td><td>7.2%</td></tr>
-                  </tbody>
-                </table>
-              </div>
-              <div class="table-pagination">
-                <span>显示 1-5 条，共 10 条</span>
-                <div class="pagination-btns">
-                  <button class="icon-btn" disabled>上一页</button>
-                  <button class="icon-btn">下一页</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="sql-block">SELECT city, COUNT(*) AS orders, SUM(total_amount) AS sales
-FROM orders
-GROUP BY city
-ORDER BY orders DESC
-LIMIT 10;
-              <button class="icon-btn sql-copy" onclick="copySql(this)">复制</button>
-            </div>
-
-            <div class="followup">
-              <button class="followup-chip" onclick="ask('华东区城市详情')">华东区城市详情</button>
-              <button class="followup-chip" onclick="ask('各城市客单价对比')">各城市客单价对比</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Empty data state -->
-        <div id="view-empty" class="view hidden">
-          <div class="result-block">
-            <div class="result-header">
-              <div class="result-title">2024 年双十一销售额</div>
-              <div class="result-actions">
-                <button class="icon-btn" onclick="loadScenario('kpi')">KPI</button>
-                <button class="icon-btn" onclick="loadScenario('chart')">图表</button>
-                <button class="icon-btn" onclick="loadScenario('table')">表格</button>
-              </div>
-            </div>
-            <div class="empty-state">
-              <div class="empty-icon">∅</div>
-              <div class="empty-title">未找到符合条件的数据</div>
-              <div class="empty-desc">当前时间范围内没有订单记录。可以尝试扩大查询范围，或检查数据源是否包含 2024 年的数据。</div>
-              <div class="result-actions">
-                <button class="icon-btn" onclick="ask('2025 年双十一销售额')">改查 2025 年</button>
-                <button class="icon-btn" onclick="ask('全部历史销售额')">查看全部历史</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Error state -->
-        <div id="view-error" class="view hidden">
-          <div class="result-block">
-            <div class="result-header">
-              <div class="result-title">去年每个季度的退货率</div>
-              <div class="result-actions">
-                <button class="icon-btn" onclick="loadScenario('kpi')">KPI</button>
-                <button class="icon-btn" onclick="loadScenario('chart')">图表</button>
-                <button class="icon-btn" onclick="loadScenario('table')">表格</button>
-              </div>
-            </div>
-
-            <div class="reasoning">
-              <button class="reasoning-toggle" onclick="toggleReasoning(this)">
-                <span>查看查询过程</span>
-                <span>▼</span>
-              </button>
-              <div class="reasoning-body hidden">
-                <div class="step-list">
-                  <div class="step done"><div class="step-icon done">✓</div>识别意图：按季度聚合退货率</div>
-                  <div class="step done"><div class="step-icon done">✓</div>Schema 感知：尝试使用 returns 表</div>
-                  <div class="step error"><div class="step-icon error">!</div>SQL 执行失败：表 returns 不存在</div>
-                </div>
-              </div>
-            </div>
-
-            <div class="error-state">
-              <div class="error-icon">!</div>
-              <div class="error-body">
-                <div class="error-title">查询执行失败</div>
-                <div class="error-desc">当前数据源中找不到 <code>returns</code> 表，无法计算退货率。你可以更换数据源，或换一种问法。</div>
-                <div class="error-actions">
-                  <button class="icon-btn" onclick="ask('去年每个季度的订单量')">改问订单量</button>
-                  <button class="icon-btn" onclick="retryQuery()">重试</button>
-                  <button class="icon-btn danger" onclick="toggleErrorDetail(this)">查看详情</button>
-                </div>
-                <div class="error-detail hidden">Error: no such table: returns
-  at sqlite3_exec (sqlite3.c:123456)
-  SQL: SELECT quarter, COUNT(return_id) / COUNT(order_id) ...</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Permission denied state -->
-        <div id="view-permission" class="view hidden">
-          <div class="result-block">
-            <div class="result-header">
-              <div class="result-title">员工薪资分布</div>
-              <div class="result-actions">
-                <button class="icon-btn" onclick="loadScenario('kpi')">KPI</button>
-                <button class="icon-btn" onclick="loadScenario('chart')">图表</button>
-                <button class="icon-btn" onclick="loadScenario('table')">表格</button>
-              </div>
-            </div>
-            <div class="permission-state">
-              <div class="permission-icon">🔒</div>
-              <div class="error-body">
-                <div class="error-title">权限不足</div>
-                <div class="error-desc">你当前的角色 <code>业务分析师</code> 没有访问 <code>salary</code> 表的权限。如需查看，请联系管理员开通。</div>
-                <div class="error-actions">
-                  <button class="icon-btn" onclick="ask('部门人数分布')">改查有权限的数据</button>
-                  <button class="icon-btn" onclick="showToast('已提交权限申请', 'info')">申请权限</button>
-                </div>
               </div>
             </div>
           </div>
@@ -1295,38 +1042,30 @@ LIMIT 10;
         <div class="modal-title">选择数据源</div>
         <button class="modal-close" onclick="closeSourceModal()">×</button>
       </div>
-      <div class="modal-body">
-        <div class="source-option active" data-id="db" data-name="电商业务数据库" data-icon="DB" onclick="selectSource(this)">
-          <div class="source-option-icon">DB</div>
-          <div class="source-option-info">
-            <div class="source-option-name">电商业务数据库</div>
-            <div class="source-option-desc">MySQL · 订单、用户、商品数据</div>
+      <div class="modal-body" id="sourceModalBody">
+        <div class="empty-history">加载中…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Login modal -->
+  <div class="modal-overlay" id="loginModal">
+    <div class="modal" style="max-width: 360px;">
+      <div class="modal-header">
+        <div class="modal-title">登录 DataPilot</div>
+      </div>
+      <div class="modal-body" style="padding: 18px;">
+        <div style="display:flex; flex-direction:column; gap:14px;">
+          <div>
+            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:6px;">用户 ID</label>
+            <input type="text" id="loginUserId" value="dev-admin" style="width:100%; background:var(--surface-2); border:1px solid var(--hairline); border-radius:var(--radius-md); padding:10px 12px; color:var(--text-primary); font-family:inherit; font-size:14px; outline:none;">
           </div>
-          <div class="source-option-check">✓</div>
-        </div>
-        <div class="source-option" data-id="warehouse" data-name="用户行为数仓" data-icon="WH" onclick="selectSource(this)">
-          <div class="source-option-icon">WH</div>
-          <div class="source-option-info">
-            <div class="source-option-name">用户行为数仓</div>
-            <div class="source-option-desc">ClickHouse · 埋点、事件、漏斗</div>
+          <div>
+            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:6px;">密码</label>
+            <input type="password" id="loginPassword" value="dev-admin" style="width:100%; background:var(--surface-2); border:1px solid var(--hairline); border-radius:var(--radius-md); padding:10px 12px; color:var(--text-primary); font-family:inherit; font-size:14px; outline:none;">
           </div>
-          <div class="source-option-check hidden">✓</div>
-        </div>
-        <div class="source-option" data-id="csv" data-name="CSV 上传" data-icon="CV" onclick="selectSource(this)">
-          <div class="source-option-icon">CV</div>
-          <div class="source-option-info">
-            <div class="source-option-name">CSV 上传</div>
-            <div class="source-option-desc">本地文件 · 上传后自动解析 Schema</div>
-          </div>
-          <div class="source-option-check hidden">✓</div>
-        </div>
-        <div class="source-option" data-id="api" data-name="API 接入" data-icon="AP" onclick="selectSource(this)">
-          <div class="source-option-icon">AP</div>
-          <div class="source-option-info">
-            <div class="source-option-name">API 接入</div>
-            <div class="source-option-desc">RESTful API · 自定义数据源</div>
-          </div>
-          <div class="source-option-check hidden">✓</div>
+          <div id="loginError" style="color:var(--danger); font-size:12px; display:none;"></div>
+          <button class="icon-btn" onclick="doLogin()" style="justify-content:center; background:var(--accent); color:white; border-color:var(--accent); padding:10px;">登录</button>
         </div>
       </div>
     </div>
@@ -1338,6 +1077,11 @@ LIMIT 10;
   <!-- Tweaks panel -->
   <div class="tweaks">
     <h4>Tweaks</h4>
+    <div class="tweak-row" style="flex-direction:column; align-items:stretch; gap:6px;">
+      <span>API 地址</span>
+      <input type="text" id="apiBaseUrl" value="http://localhost:8000" style="width:100%; background:var(--surface-2); border:1px solid var(--hairline); border-radius:var(--radius-sm); padding:6px 8px; color:var(--text-primary); font-family:var(--font-mono); font-size:11px; outline:none;" onkeydown="if(event.key==='Enter')saveApiUrl()">
+      <button class="icon-btn" onclick="saveApiUrl()" style="justify-content:center; padding:5px;">应用地址</button>
+    </div>
     <div class="tweak-row">
       <span>显示查询过程</span>
       <div class="toggle on" id="toggleReasoning" onclick="this.classList.toggle('on')"></div>
@@ -1351,14 +1095,186 @@ LIMIT 10;
       <div class="toggle on" id="toggleTheme" onclick="toggleTheme()"></div>
     </div>
     <div class="tweak-row">
-      <span>清空历史</span>
-      <button class="icon-btn danger" onclick="clearHistory()" style="padding:4px 8px; font-size:11px;">清空</button>
+      <span>退出登录</span>
+      <button class="icon-btn danger" onclick="logout()" style="padding:4px 8px; font-size:11px;">退出</button>
     </div>
   </div>
 
   <script>
-    let currentSource = { id: 'db', name: '电商业务数据库', icon: 'DB' };
+    // ===== 配置与状态 =====
+    const STORAGE_TOKEN_KEY = 'datapilot_token';
+    const STORAGE_URL_KEY = 'datapilot_api_url';
+    let apiBaseUrl = localStorage.getItem(STORAGE_URL_KEY) || 'http://localhost:8000';
+    let accessToken = localStorage.getItem(STORAGE_TOKEN_KEY) || '';
+    let currentUser = null;
+    let currentSource = { id: 'default', name: '默认数据源', icon: 'DB' };
+    let availableSources = [];
     let isOffline = false;
+    let currentSessionId = null;
+    let currentQueryResult = null;
+    let currentDisplayMode = null; // 'kpi' | 'chart' | 'table'
+    let sseController = null;
+    let healthTimer = null;
+    let healthAbortController = null;
+
+    // ===== 初始化 =====
+    function init() {
+      document.getElementById('apiBaseUrl').value = apiBaseUrl;
+      if (!accessToken) {
+        showLoginModal();
+      } else {
+        validateTokenAndBootstrap();
+      }
+      startHealthCheck();
+    }
+
+    function saveApiUrl() {
+      const val = document.getElementById('apiBaseUrl').value.trim();
+      if (val) {
+        apiBaseUrl = val.replace(/\/$/, '');
+        localStorage.setItem(STORAGE_URL_KEY, apiBaseUrl);
+        showToast('API 地址已保存', 'success');
+        startHealthCheck();
+        if (accessToken) fetchSources();
+      }
+    }
+
+    // ===== API 客户端 =====
+    async function apiCall(method, path, body = null, stream = false, signal = null) {
+      const url = apiBaseUrl + '/api/v1' + path;
+      const headers = { 'Accept': 'application/json' };
+      if (accessToken) headers['Authorization'] = 'Bearer ' + accessToken;
+      if (body) headers['Content-Type'] = 'application/json';
+      const opts = { method, headers };
+      if (body) opts.body = JSON.stringify(body);
+      if (signal) opts.signal = signal;
+      const res = await fetch(url, opts);
+      if (res.status === 401) {
+        accessToken = '';
+        localStorage.removeItem(STORAGE_TOKEN_KEY);
+        showLoginModal();
+        throw new Error('登录已过期，请重新登录');
+      }
+      if (!res.ok) {
+        let detail = '';
+        try {
+          const body = await res.json();
+          detail = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail ?? body);
+        } catch (_) {
+          try { detail = await res.text(); } catch (__) { detail = res.statusText; }
+        }
+        throw new Error(detail || `HTTP ${res.status}`);
+      }
+      if (stream) return res;
+      return await res.json();
+    }
+
+    // ===== 登录 =====
+    function showLoginModal() {
+      document.getElementById('loginModal').classList.add('open');
+      document.getElementById('loginError').style.display = 'none';
+    }
+
+    function hideLoginModal() {
+      document.getElementById('loginModal').classList.remove('open');
+    }
+
+    async function doLogin() {
+      const userId = document.getElementById('loginUserId').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const errEl = document.getElementById('loginError');
+      if (!userId) {
+        errEl.textContent = '请输入用户 ID';
+        errEl.style.display = 'block';
+        return;
+      }
+      try {
+        const data = await apiCall('POST', '/auth/login', { user_id: userId, password });
+        accessToken = data.access_token;
+        currentUser = { user_id: data.user_id, roles: data.roles };
+        localStorage.setItem(STORAGE_TOKEN_KEY, accessToken);
+        hideLoginModal();
+        showToast(`欢迎回来，${data.user_id}`, 'success');
+        await bootstrapAfterLogin();
+      } catch (e) {
+        errEl.textContent = '登录失败：' + e.message;
+        errEl.style.display = 'block';
+      }
+    }
+
+    function logout() {
+      accessToken = '';
+      currentUser = null;
+      localStorage.removeItem(STORAGE_TOKEN_KEY);
+      showToast('已退出登录', 'info');
+      showLoginModal();
+    }
+
+    async function validateTokenAndBootstrap() {
+      try {
+        await bootstrapAfterLogin();
+      } catch (e) {
+        showLoginModal();
+      }
+    }
+
+    async function bootstrapAfterLogin() {
+      await fetchSources();
+      await checkHealth();
+    }
+
+    // ===== 数据源 =====
+    async function fetchSources() {
+      try {
+        const data = await apiCall('GET', '/sources');
+        availableSources = data.sources || [];
+        renderSourceModal();
+        if (availableSources.length > 0) {
+          const exists = availableSources.find(s => s.source_id === currentSource.id);
+          if (!exists) selectSourceById(availableSources[0].source_id);
+        }
+      } catch (e) {
+        showToast('数据源加载失败：' + e.message, 'error');
+      }
+    }
+
+    function renderSourceModal() {
+      const body = document.getElementById('sourceModalBody');
+      if (availableSources.length === 0) {
+        body.innerHTML = '<div class="empty-history">暂无可用数据源</div>';
+        return;
+      }
+      body.innerHTML = availableSources.map(s => {
+        const active = s.source_id === currentSource.id ? 'active' : '';
+        const hidden = s.source_id === currentSource.id ? '' : 'hidden';
+        const icon = sourceTypeIcon(s.source_type);
+        const desc = s.connected ? '已连接' : '未连接';
+        return `
+          <div class="source-option ${active}" data-id="${escapeHtml(s.source_id)}" data-name="${escapeHtml(s.source_id)}" data-icon="${icon}" data-type="${escapeHtml(s.source_type)}" onclick="selectSource(this)">
+            <div class="source-option-icon">${icon}</div>
+            <div class="source-option-info">
+              <div class="source-option-name">${escapeHtml(s.source_id)}</div>
+              <div class="source-option-desc">${escapeHtml(s.source_type.toUpperCase())} · ${desc}</div>
+            </div>
+            <div class="source-option-check ${hidden}">✓</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function sourceTypeIcon(type) {
+      const map = { sql: 'DB', csv: 'CV', api: 'AP' };
+      return map[(type || '').toLowerCase()] || 'DS';
+    }
+
+    function selectSourceById(sourceId) {
+      const s = availableSources.find(x => x.source_id === sourceId);
+      if (!s) return;
+      currentSource = { id: s.source_id, name: s.source_id, icon: sourceTypeIcon(s.source_type) };
+      document.getElementById('sourceLabel').textContent = currentSource.name;
+      document.getElementById('sourceIcon').textContent = currentSource.icon;
+      renderSourceModal();
+    }
 
     function loadScenario(name) {
       document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
@@ -1366,11 +1282,11 @@ LIMIT 10;
       if (target) target.classList.remove('hidden');
 
       document.querySelectorAll('.history-item').forEach(el => el.classList.remove('active'));
-      const map = { welcome: 0, kpi: 1, table: 2, chart: 3, error: 4 };
-      const idx = map[name] ?? 0;
-      document.querySelectorAll('.history-item')[idx]?.classList.add('active');
+      if (name === 'welcome') {
+        document.querySelectorAll('.history-item')[0]?.classList.add('active');
+      }
 
-      if (name === 'kpi' || name === 'chart' || name === 'table') {
+      if (name === 'result') {
         document.getElementById('content').scrollTop = 0;
       }
     }
@@ -1390,42 +1306,365 @@ LIMIT 10;
         showToast('当前处于离线状态，无法提交查询', 'error');
         return;
       }
+      if (!accessToken) {
+        showLoginModal();
+        return;
+      }
 
       loadScenario('thinking');
       input.value = '';
-
-      const thinkingTexts = [
-        '正在理解问题…',
-        '正在检索相似案例…',
-        '正在感知 Schema…',
-        '正在生成查询…',
-        '正在执行并校验…'
-      ];
-      let step = 0;
-      const textEl = document.getElementById('thinkingText');
-      const interval = setInterval(() => {
-        step = Math.min(step + 1, thinkingTexts.length - 1);
-        textEl.textContent = thinkingTexts[step];
-      }, 220);
-
-      setTimeout(() => {
-        clearInterval(interval);
-        if (text.includes('薪资') || text.includes('工资')) {
-          loadScenario('permission');
-        } else if (text.includes('2024') && text.includes('双十一')) {
-          loadScenario('empty');
-        } else if (text.includes('退货率') || text.includes('错误')) {
-          loadScenario('error');
-        } else if (text.includes('销售额') && !text.includes('排名') && !text.includes('渠道')) {
-          loadScenario('kpi');
-        } else if (text.includes('趋势') || text.includes('活跃')) {
-          loadScenario('chart');
-        } else {
-          loadScenario('table');
-        }
-      }, 1400);
+      resetThinkingText();
+      runQueryStream(text);
     }
 
+    function resetThinkingText() {
+      document.getElementById('thinkingText').textContent = '正在理解问题并生成查询…';
+    }
+
+    // ===== SSE 查询 =====
+    async function runQueryStream(question) {
+      if (sseController) sseController.abort();
+      sseController = new AbortController();
+
+      const steps = [];
+      let final = null;
+
+      try {
+        const res = await apiCall('POST', '/query/stream', {
+          question,
+          source_id: currentSource.id,
+          session_id: currentSessionId
+        }, true, sseController.signal);
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data:')) continue;
+            const payload = trimmed.slice(5).trim();
+            if (!payload) continue;
+            try {
+              const msg = JSON.parse(payload);
+              if (msg.type === 'final') {
+                final = msg;
+              } else if (msg.stage) {
+                steps.push(msg);
+                updateThinkingText(msg.stage, msg.detail);
+              }
+            } catch (_) {}
+          }
+        }
+
+        if (final) {
+          currentQueryResult = final;
+          currentSessionId = final.session_id || currentSessionId;
+          renderResult(question, final, steps);
+          addHistoryItem(question, final.success, final.error);
+        } else {
+          throw new Error('未收到服务端最终结果');
+        }
+      } catch (e) {
+        if (e.name === 'AbortError') return;
+        showErrorResult(question, e.message, steps);
+        addHistoryItem(question, false, e.message);
+      } finally {
+        sseController = null;
+      }
+    }
+
+    function updateThinkingText(stage, detail) {
+      const map = {
+        intent: '正在理解问题…',
+        rag: '正在检索相似案例…',
+        schema: '正在感知 Schema…',
+        generation: '正在生成查询…',
+        execution: '正在执行并校验…'
+      };
+      document.getElementById('thinkingText').textContent = map[stage] || detail || '正在处理…';
+    }
+
+    // ===== 结果渲染 =====
+    function renderResult(question, final, steps) {
+      currentDisplayMode = inferDisplayMode(final);
+      document.getElementById('resultTitle').textContent = question;
+      renderSteps(steps, final.sql || '', final.error);
+      renderResultContent(final);
+      renderFollowups(final.output_type);
+      updateDisplayButtons();
+      loadScenario('result');
+    }
+
+    function showErrorResult(question, error, steps) {
+      currentDisplayMode = 'error';
+      document.getElementById('resultTitle').textContent = question;
+      const errText = typeof error === 'string' ? error : JSON.stringify(error);
+      renderSteps(steps, '', errText);
+      document.getElementById('resultContent').innerHTML = `
+        <div class="error-state">
+          <div class="error-icon">!</div>
+          <div class="error-body">
+            <div class="error-title">查询执行失败</div>
+            <div class="error-desc">${escapeHtml(errText)}</div>
+            <div class="error-actions">
+              <button class="icon-btn" onclick="retryQuery()">重试</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.getElementById('followupChips').innerHTML = '';
+      updateDisplayButtons();
+      loadScenario('result');
+    }
+
+    function inferDisplayMode(final) {
+      if (final.error) return 'error';
+      const type = (final.output_type || 'table').toLowerCase();
+      if (type === 'kpi') return 'kpi';
+      if (type === 'chart') return 'chart';
+      return 'table';
+    }
+
+    function setDisplayMode(mode) {
+      if (!currentQueryResult) return;
+      currentDisplayMode = mode;
+      renderResultContent(currentQueryResult);
+      updateDisplayButtons();
+    }
+
+    function updateDisplayButtons() {
+      ['kpi', 'chart', 'table'].forEach(mode => {
+        const btn = document.getElementById('btn' + mode.charAt(0).toUpperCase() + mode.slice(1));
+        if (btn) btn.classList.toggle('active', currentDisplayMode === mode);
+      });
+    }
+
+    function renderSteps(steps, sql, error) {
+      const stepList = document.getElementById('stepList');
+      const sqlBlock = document.getElementById('sqlBlock');
+      const reasoningPanel = document.getElementById('reasoningPanel');
+
+      if (!steps || steps.length === 0) {
+        reasoningPanel.classList.add('hidden');
+        return;
+      }
+      reasoningPanel.classList.remove('hidden');
+
+      stepList.innerHTML = steps.map(s => {
+        let statusClass = 'done';
+        let icon = '✓';
+        if (s.status === 'running') { statusClass = 'running'; icon = '●'; }
+        else if (s.status === 'error') { statusClass = 'error'; icon = '!'; }
+        return `<div class="step ${statusClass}"><div class="step-icon ${statusClass}">${icon}</div>${escapeHtml(s.detail || s.stage)}</div>`;
+      }).join('');
+
+      if (error) {
+        stepList.innerHTML += `<div class="step error"><div class="step-icon error">!</div>${escapeHtml(error)}</div>`;
+      }
+
+      if (sql) {
+        const btn = sqlBlock.querySelector('button');
+        sqlBlock.innerHTML = '';
+        sqlBlock.appendChild(document.createTextNode('\n' + sql + '\n'));
+        if (btn) sqlBlock.appendChild(btn);
+        sqlBlock.classList.remove('hidden');
+      } else {
+        sqlBlock.classList.add('hidden');
+      }
+
+      const showReasoning = document.getElementById('toggleReasoning').classList.contains('on');
+      const body = document.getElementById('reasoningBody');
+      const arrow = reasoningPanel.querySelector('.reasoning-toggle span:last-child');
+      body.classList.toggle('hidden', !showReasoning);
+      arrow.textContent = body.classList.contains('hidden') ? '▼' : '▲';
+    }
+
+    function renderResultContent(final) {
+      const container = document.getElementById('resultContent');
+      const result = final.result || {};
+      const columns = result.columns || [];
+      const rows = result.rows || [];
+
+      if (currentDisplayMode === 'kpi') {
+        container.innerHTML = renderKpi(result);
+      } else if (currentDisplayMode === 'chart') {
+        container.innerHTML = renderChart(final.chart_spec, columns, rows);
+      } else {
+        container.innerHTML = renderTable(columns, rows);
+      }
+    }
+
+    function renderKpi(result) {
+      const columns = result.columns || [];
+      const rows = result.rows || [];
+      let cards = '';
+      if (rows.length > 0 && columns.length > 0) {
+        const row = rows[0];
+        cards = columns.slice(0, 4).map((col, idx) => {
+          const val = row[idx];
+          return `
+            <div class="kpi-card">
+              <div class="kpi-label">${escapeHtml(col)}</div>
+              <div class="kpi-value">${escapeHtml(String(val ?? ''))}</div>
+            </div>
+          `;
+        }).join('');
+      }
+      if (!cards) {
+        cards = '<div class="kpi-card"><div class="kpi-label">结果</div><div class="kpi-value">-</div></div>';
+      }
+      return `<div class="kpi-grid">${cards}</div>`;
+    }
+
+    function renderChart(chartSpec, columns, rows) {
+      // 若后端返回 ECharts spec，暂用简化的占位提示；否则按前两列画柱状图
+      if (chartSpec && chartSpec.title) {
+        return `
+          <div class="chart-card">
+            <div class="chart-header"><div class="chart-title">${escapeHtml(chartSpec.title.text || '图表')}</div></div>
+            <div class="empty-state" style="flex:1;">
+              <div class="empty-desc">后端返回了图表配置，请接入 ECharts 渲染器以展示完整图表。</div>
+              <pre style="text-align:left; font-size:11px; max-height:160px; overflow:auto;">${escapeHtml(JSON.stringify(chartSpec, null, 2))}</pre>
+            </div>
+          </div>
+        `;
+      }
+      if (rows.length === 0 || columns.length < 2) {
+        return `<div class="empty-state"><div class="empty-icon">∅</div><div class="empty-title">无可用图表数据</div></div>`;
+      }
+      const labelCol = columns[0];
+      const valueCol = columns[1];
+      const max = Math.max(...rows.map(r => Number(r[1]) || 0)) || 1;
+      const bars = rows.slice(0, 12).map(r => {
+        const label = String(r[0] ?? '');
+        const val = Number(r[1]) || 0;
+        const pct = (val / max * 100).toFixed(1);
+        return `<div class="bar" style="height:${pct}%"><span class="bar-tooltip">${escapeHtml(valueCol)}: ${formatNumber(val)}</span><span class="bar-label">${escapeHtml(label)}</span></div>`;
+      }).join('');
+      return `
+        <div class="chart-card">
+          <div class="chart-header"><div class="chart-title">${escapeHtml(valueCol)}</div></div>
+          <div class="chart-body">${bars}</div>
+        </div>
+      `;
+    }
+
+    function renderTable(columns, rows) {
+      if (columns.length === 0) {
+        return `<div class="empty-state"><div class="empty-icon">∅</div><div class="empty-title">无数据</div></div>`;
+      }
+      const ths = columns.map(c => `<th>${escapeHtml(c)}</th>`).join('');
+      const trs = rows.slice(0, 100).map(row => {
+        return '<tr>' + row.map(cell => `<td class="${isNumber(cell) ? 'cell-num' : ''}">${escapeHtml(String(cell ?? ''))}</td>`).join('') + '</tr>';
+      }).join('');
+      return `
+        <div class="table-card">
+          <div class="table-toolbar">
+            <div class="table-count">共 ${rows.length} 条记录</div>
+            <div class="result-actions">
+              <button class="icon-btn" onclick="showToast('排序功能开发中', 'info')">排序</button>
+              <button class="icon-btn" onclick="showToast('筛选功能开发中', 'info')">筛选</button>
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr>${ths}</tr></thead>
+              <tbody>${trs}</tbody>
+            </table>
+          </div>
+          ${rows.length > 100 ? '<div class="table-pagination"><span>仅展示前 100 条</span></div>' : ''}
+        </div>
+      `;
+    }
+
+    function renderFollowups(outputType) {
+      const container = document.getElementById('followupChips');
+      const suggestions = {
+        kpi: ['按渠道拆分', '和去年同期对比', '查看趋势'],
+        chart: ['查看详细数据', '按城市拆分', '导出图表'],
+        table: ['Top 10 排名', '按时间聚合', '添加筛选条件']
+      };
+      const chips = (suggestions[outputType] || suggestions.table).map(q =>
+        `<button class="followup-chip" onclick="ask('${escapeHtml(q)}')">${escapeHtml(q)}</button>`
+      ).join('');
+      container.innerHTML = chips;
+    }
+
+    // ===== 历史记录 =====
+    function addHistoryItem(question, success, error) {
+      const list = document.getElementById('historyList');
+      const empty = document.getElementById('emptyHistory');
+      empty.classList.add('hidden');
+      list.classList.remove('hidden');
+
+      const dotClass = success ? '' : 'error';
+      const item = document.createElement('div');
+      item.className = 'history-item';
+      item.innerHTML = `
+        <div class="history-q">${escapeHtml(question)}</div>
+        <div class="history-meta"><span class="history-dot ${dotClass}"></span><span>刚刚</span></div>
+      `;
+      item.onclick = () => { ask(question); };
+      list.insertBefore(item, list.firstChild);
+    }
+
+    function clearHistory() {
+      const list = document.getElementById('historyList');
+      const empty = document.getElementById('emptyHistory');
+      list.innerHTML = '';
+      list.classList.add('hidden');
+      empty.classList.remove('hidden');
+      showToast('历史记录已清空', 'info');
+    }
+
+    // ===== 健康检查 =====
+    async function checkHealth() {
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+      const banner = document.getElementById('offlineBanner');
+      const url = apiBaseUrl + '/api/v1/health';
+
+      if (healthAbortController) healthAbortController.abort();
+      healthAbortController = new AbortController();
+
+      try {
+        const res = await fetch(url, {
+          method: 'GET',
+          headers: accessToken ? { 'Authorization': 'Bearer ' + accessToken } : {},
+          signal: healthAbortController.signal
+        });
+        if (!res.ok) throw new Error('health not ok');
+        isOffline = false;
+        banner.classList.remove('show');
+        dot.classList.remove('error');
+        text.textContent = '连接正常';
+      } catch (e) {
+        if (e.name === 'AbortError') return;
+        isOffline = true;
+        banner.classList.add('show');
+        dot.classList.add('error');
+        text.textContent = '已断开';
+      }
+    }
+
+    function startHealthCheck() {
+      if (healthTimer) clearInterval(healthTimer);
+      checkHealth();
+      healthTimer = setInterval(checkHealth, 15000);
+    }
+
+    function toggleOffline() {
+      // 现在由真实健康检查驱动，点击状态可触发一次检查
+      checkHealth();
+    }
+
+    // ===== 通用交互 =====
     function toggleReasoning(btn) {
       const body = btn.nextElementSibling;
       body.classList.toggle('hidden');
@@ -1441,6 +1680,7 @@ LIMIT 10;
     }
 
     function openSourceModal() {
+      renderSourceModal();
       document.getElementById('sourceModal').classList.add('open');
     }
 
@@ -1450,45 +1690,9 @@ LIMIT 10;
     }
 
     function selectSource(el) {
-      document.querySelectorAll('.source-option').forEach(opt => {
-        opt.classList.remove('active');
-        opt.querySelector('.source-option-check').classList.add('hidden');
-      });
-      el.classList.add('active');
-      el.querySelector('.source-option-check').classList.remove('hidden');
-
-      currentSource = {
-        id: el.dataset.id,
-        name: el.dataset.name,
-        icon: el.dataset.icon
-      };
-
-      document.getElementById('sourceLabel').textContent = currentSource.name;
-      document.getElementById('sourceIcon').textContent = currentSource.icon;
+      selectSourceById(el.dataset.id);
       closeSourceModal();
       showToast(`已切换到：${currentSource.name}`, 'success');
-    }
-
-    function toggleOffline() {
-      isOffline = !isOffline;
-      const banner = document.getElementById('offlineBanner');
-      const status = document.getElementById('connectionStatus');
-      const dot = document.getElementById('statusDot');
-      const text = document.getElementById('statusText');
-
-      if (isOffline) {
-        banner.classList.add('show');
-        status.classList.add('error');
-        dot.classList.add('error');
-        text.textContent = '已断开';
-        showToast('网络连接已断开', 'error');
-      } else {
-        banner.classList.remove('show');
-        status.classList.remove('error');
-        dot.classList.remove('error');
-        text.textContent = '连接正常';
-        showToast('网络连接已恢复', 'success');
-      }
     }
 
     function exportData(format) {
@@ -1496,7 +1700,22 @@ LIMIT 10;
         showToast('离线状态下无法导出', 'error');
         return;
       }
-      showToast(`已导出 ${format}`, 'success');
+      if (!currentQueryResult || !currentQueryResult.result) {
+        showToast('暂无数据可导出', 'error');
+        return;
+      }
+      const result = currentQueryResult.result;
+      const cols = result.columns || [];
+      const rows = result.rows || [];
+      const csv = [cols.join(','), ...rows.map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(','))].join('\n');
+      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `datapilot_export_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('CSV 已导出', 'success');
     }
 
     function copySql(btn) {
@@ -1510,23 +1729,9 @@ LIMIT 10;
     }
 
     function retryQuery() {
-      loadScenario('thinking');
-      setTimeout(() => loadScenario('error'), 1200);
-      showToast('已重新尝试，问题仍未解决', 'error');
-    }
-
-    function toggleErrorDetail(btn) {
-      const detail = btn.parentElement.nextElementSibling;
-      detail.classList.toggle('hidden');
-      btn.textContent = detail.classList.contains('hidden') ? '查看详情' : '收起详情';
-    }
-
-    function clearHistory() {
-      const list = document.getElementById('historyList');
-      const empty = document.getElementById('emptyHistory');
-      list.classList.add('hidden');
-      empty.classList.remove('hidden');
-      showToast('历史记录已清空', 'info');
+      const last = document.querySelector('.history-q');
+      if (last) ask(last.textContent);
+      else showToast('没有可重试的查询', 'error');
     }
 
     function toggleTheme() {
@@ -1553,6 +1758,19 @@ LIMIT 10;
       }, 2800);
     }
 
+    function escapeHtml(text) {
+      if (text == null) return '';
+      return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function isNumber(val) {
+      return typeof val === 'number' && !isNaN(val);
+    }
+
+    function formatNumber(n) {
+      return n.toLocaleString('zh-CN');
+    }
+
     document.getElementById('questionInput').addEventListener('keydown', function(e) {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -1564,6 +1782,12 @@ LIMIT 10;
       this.style.height = 'auto';
       this.style.height = Math.min(this.scrollHeight, 120) + 'px';
     });
+
+    document.getElementById('loginPassword').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') doLogin();
+    });
+
+    init();
   </script>
 </body>
 </html>

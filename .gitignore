@@ -1,17 +1,17 @@
-# Byte-compiled
+# 字节码文件
 __pycache__/
 *.py[cod]
 *.egg-info/
 
-# RAG index (regenerated on first run)
+# RAG 索引（首次运行时重新生成）
 rag_index.pkl
 
-# Spider database files (download separately)
+# Spider 数据库文件（需单独下载）
 datasets/spider_databases/
 
-# Environment
+# 环境变量
 .env
 DEEPSEEK_API_KEY
 
-# OS
+# 操作系统
 .DS_Store

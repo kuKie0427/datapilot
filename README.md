@@ -142,11 +142,11 @@ datapilot/
 
 ## 评测
 
-在 Spider 100 条分层测试集上：
+在 Spider 分层测试集上：
 
 | 指标 | 整体 | Simple | Moderate | Challenging |
 |------|------|--------|----------|-------------|
-| Execution Accuracy | 78% | 84% | 82% | 66% |
+| Execution Accuracy | 83% | 84% | 82% | 66% |
 
 ```bash
 # Exact Match 模式
