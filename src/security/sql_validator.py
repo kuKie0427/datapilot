@@ -123,8 +123,13 @@ class SQLValidator:
             errors.append("UNION is not allowed (can bypass row-level security)")
 
         # 5. 禁止危险函数（大小写归一化后匹配）
+        # 注意：sqlglot 将 SLEEP/BENCHMARK 等未知函数解析为 exp.Anonymous，
+        # 其 key 固定为 "anonymous"，必须用 func.name 才能拿到真实函数名
         for func in parsed.find_all(exp.Func):
-            func_name = str(func.key).lower()
+            func_name = (func.name or "").lower()
+            if not func_name:
+                # 已知函数（如 Count/Sum）用 key 作为回退
+                func_name = (func.key or "").lower()
             if func_name in _FORBIDDEN_FUNCTIONS:
                 errors.append(f"Forbidden function: {func_name}")
 
@@ -143,7 +148,9 @@ class SQLValidator:
         else:
             existing_limit = parsed.args.get("limit")
             try:
-                limit_val = int(existing_limit.this.name)
+                # sqlglot 不同版本将 LIMIT 值存在 this 或 expression 中
+                limit_node = existing_limit.this or existing_limit.expression
+                limit_val = int(limit_node.name or str(limit_node))
                 if limit_val > self.max_rows:
                     parsed = parsed.limit(self.max_rows)
                     warnings.append(

@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   # DataPilot API 服务
   datapilot:
@@ -12,7 +10,7 @@ services:
       - LLM_BASE_URL=${LLM_BASE_URL:-https://api.deepseek.com/v1}
       - LLM_MODEL=${LLM_MODEL:-deepseek-chat}
       - SANDBOX_ENABLED=true
-      - SANDBOX_IMAGE=python:3.11-slim
+      - SANDBOX_IMAGE=datapilot-sandbox:latest
       - SANDBOX_TIMEOUT=30
       - MYSQL_HOST=mysql
       - MYSQL_PORT=3306
@@ -22,7 +20,6 @@ services:
     volumes:
       - ./:/app
       - /var/run/docker.sock:/var/run/docker.sock  # 用于沙箱容器
-      - ./uploads:/app/uploads
     depends_on:
       mysql:
         condition: service_healthy
@@ -51,7 +48,10 @@ services:
   # 沙箱镜像（预装 pandas 等依赖）
   # 由 SandboxExecutor 用于运行 LLM 生成的 Python 代码
   sandbox:
-    image: python:3.11-slim
+    build:
+      context: .
+      dockerfile: Dockerfile.sandbox
+    image: datapilot-sandbox:latest
     container_name: datapilot-sandbox-base
     command: echo "Sandbox base image ready"
     networks:

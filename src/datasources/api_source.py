@@ -278,7 +278,7 @@ class APIAdapter(BaseAdapter):
             return "float"
         return "string"
 
-    async def execute_query(self, query: str, params: dict) -> QueryResult:
+    async def execute_query(self, query: str, params: dict = None) -> QueryResult:
         """执行 API 查询。
 
         查询格式："GET /path?params" 或 "POST /path {json_body}"

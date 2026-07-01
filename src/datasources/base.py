@@ -8,6 +8,7 @@ import time
 
 @dataclass
 class ColumnInfo:
+    """数据源中单个字段的元信息。"""
     name: str
     dtype: str
     nullable: bool = True
@@ -16,6 +17,7 @@ class ColumnInfo:
 
 @dataclass
 class TableInfo:
+    """数据源中单张表/视图的元信息，包含字段、外键与行数。"""
     name: str
     columns: list[ColumnInfo] = field(default_factory=list)
     foreign_keys: list[dict] = field(default_factory=list)
@@ -96,6 +98,7 @@ class BaseAdapter(ABC):
         ...
 
     def describe(self) -> dict:
+        """返回数据源的描述信息，用于注册表展示与日志输出。"""
         return {
             "source_id": self.source_id,
             "source_type": self.source_type,

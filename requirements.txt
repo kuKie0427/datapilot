@@ -17,10 +17,6 @@ langchain-core>=0.1.0
 
 # 数据库驱动
 mysql-connector-python>=8.2.0
-pymysql>=1.1.0
-
-# 沙箱
-docker>=6.1.0
 
 # 工具库
 httpx>=0.25.0

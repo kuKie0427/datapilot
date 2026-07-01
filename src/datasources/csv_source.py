@@ -52,11 +52,12 @@ class CSVAdapter(BaseAdapter):
         if not _SAFE_NAME_RE.match(raw_name):
             # 含非法字符 → 替换为下划线，确保不破坏 SQL
             safe = re.sub(r"[^A-Za-z0-9_]", "_", raw_name)
+            # 防止首字符为数字（必须在最终校验前处理，否则会被回退为 csv_data）
+            if safe and safe[0].isdigit():
+                safe = f"t_{safe}"
+            # 替换后仍不合法（如空串）→ 用默认名
             if not safe or not _SAFE_NAME_RE.match(safe):
                 safe = "csv_data"
-            # 防止首字符为数字
-            if safe[0].isdigit():
-                safe = f"t_{safe}"
             self.table_name = safe
         else:
             self.table_name = raw_name

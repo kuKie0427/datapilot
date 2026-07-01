@@ -1,24 +1,27 @@
+"""Spider 评估专用的独立 SQL 生成器。
+
+注意：主流水线请使用 src/agent/nodes.py 的 LangGraph 四阶段流水线。
+本模块仅用于 Spider 基准评估（src/evaluate.py），不走 RBAC / 行级过滤 / 沙箱。
+"""
+
 import os
 import json
 import sqlite3
+import hashlib
 from openai import OpenAI
 from .rag_store import RAGStore
+from .config import config
 
-API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
-BASE_URL = "https://api.deepseek.com/v1"
-MODEL = "deepseek-v4-flash"
 RAG = RAGStore()
 _SCHEMA_CACHE = {}
 _CACHED_SYSTEM_PROMPTS = {}
-SELF_CONSISTENCY_N = 2
-SELF_CONSISTENCY_TEMPERATURE = 0.3
 DB_DIR = os.environ.get("SPIDER_DB_DIR", "datasets/spider_databases/database")
 
 
 def _load_schemas(path: str = ""):
     if _SCHEMA_CACHE:
         return
-    if path == ""   :
+    if path == "":
         path = os.path.join(os.path.dirname(__file__), "..", "tables.json")
     if not os.path.exists(path):
         return
@@ -79,9 +82,9 @@ def _get_system_prompt(question: str, db_id: str = "") -> str:
 
 def _call_llm(question: str,  system_prompt: str = "", temperature: float = 0.0) -> str:
     user = f"Generate a SQL query for: {question}"
-    client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
+    client = OpenAI(api_key=config.llm.api_key, base_url=config.llm.base_url)
     resp = client.chat.completions.create(
-        model=MODEL,
+        model=config.llm.model,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user},
@@ -90,8 +93,8 @@ def _call_llm(question: str,  system_prompt: str = "", temperature: float = 0.0)
         max_tokens=1000,
         # DeepSeek 默认启用 thinking
     )
-    if resp.choices[0].message.content is not None:
-        sql = resp.choices[0].message.content.strip()
+    # 兼容部分模型 reasoning 模式返回 content=None 的情况
+    sql = (resp.choices[0].message.content or "").strip()
     if sql.startswith("```"):
         sql = sql.split("\n", 1)[-1] if "\n" in sql else sql
         sql = sql.rsplit("```", 1)[0] if "```" in sql else sql
@@ -99,6 +102,12 @@ def _call_llm(question: str,  system_prompt: str = "", temperature: float = 0.0)
 
 
 def _execute_and_get_result_hash(sql: str, db_id: str):
+    # 安全校验：仅允许 SELECT / WITH 语句，防止 LLM 生成破坏性 SQL
+    # PRAGMA query_only = ON 已提供底层只读保护，这里做语句类型白名单
+    stripped = sql.strip().lstrip("(").strip().upper()
+    if not (stripped.startswith("SELECT") or stripped.startswith("WITH")):
+        return (None, "Only SELECT/WITH statements are allowed")
+
     db_path = os.path.join(DB_DIR, db_id, f"{db_id}.sqlite")
     if not os.path.exists(db_path):
         return (None, None)
@@ -108,17 +117,18 @@ def _execute_and_get_result_hash(sql: str, db_id: str):
         cur = conn.execute(sql)
         rows = cur.fetchall()
         conn.close()
-        return (hash(str(sorted(rows))), None)
+        # 用 hashlib 替代内置 hash()，保证跨进程稳定（不受 PYTHONHASHSEED 影响）
+        return (hashlib.md5(str(sorted(rows)).encode()).hexdigest(), None)
     except Exception as e:
         return (None, str(e))
 
 
 def generate_sql(question: str, db_id: str = "") -> str:
-    if not API_KEY:
-        return "-- Set DEEPSEEK_API_KEY environment variable"
+    if not config.llm.api_key:
+        return "-- Set LLM_API_KEY environment variable"
 
     if not RAG.examples:
-        RAG.build(max_examples=7000)
+        RAG.build(max_examples=config.rag.max_examples)
 
     system_prompt = _get_system_prompt(question, db_id)
 
@@ -132,8 +142,8 @@ def generate_sql(question: str, db_id: str = "") -> str:
         return greedy_sql
 
     candidates = [("greedy", greedy_sql)]
-    for i in range(SELF_CONSISTENCY_N - 1):
-        sql = _call_llm(question, system_prompt, temperature=SELF_CONSISTENCY_TEMPERATURE)
+    for i in range(config.llm.consistency_n - 1):
+        sql = _call_llm(question, system_prompt, temperature=config.llm.consistency_temperature)
         if sql.strip():
             candidates.append((f"sample-{i}", sql))
 

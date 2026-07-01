@@ -1,3 +1,5 @@
+"""Spider 基准评估 —— Text-to-SQL 准确率评估工具。"""
+
 import json
 import sqlite3
 import os

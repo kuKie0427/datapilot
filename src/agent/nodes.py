@@ -2,12 +2,11 @@
 
 import time
 import json
-from typing import Any
 from openai import OpenAI
 from .state import AgentState, QueryStage, OutputType
 from ..config import config
 from ..rag_store import RAGStore
-from ..datasources import create_default_registry
+from ..datasources import get_shared_registry
 from ..tools import chart_tool
 
 
@@ -342,7 +341,7 @@ async def node_schema_aware_generation(state: AgentState) -> AgentState:
     # 获取模式
     schema_text = ""
     try:
-        registry = create_default_registry()
+        registry = get_shared_registry()
         schema = await registry.get_schema(source_id)
         if schema:
             schema_text = schema.to_prompt_text()
@@ -481,7 +480,7 @@ async def node_execution_validation(state: AgentState) -> AgentState:
 
     # 通过数据源适配器执行
     try:
-        registry = create_default_registry()
+        registry = get_shared_registry()
         result = await registry.execute(source_id, sql)
 
         if result.success:
@@ -624,7 +623,7 @@ async def node_error_correction(state: AgentState) -> AgentState:
     # 执行所有候选，选取第一个通过的
     source_id = state.get("source_id", "default")
     user = state.get("user")
-    registry = create_default_registry()
+    registry = get_shared_registry()
 
     # 纠错阶段同样做 SQL 校验 + 行级过滤注入（fail-closed）
     from ..security import validate_sql, DEFAULT_MAX_ROWS, DEFAULT_ADMIN_MAX_ROWS

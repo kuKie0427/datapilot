@@ -45,11 +45,11 @@ class DataSourceRegistry:
         self._schemas[source_id] = schema
         return schema
 
-    async def execute(self, source_id: str, query: str, params: dict):
+    async def execute(self, source_id: str, query: str, params: dict = None):
         adapter = self.get(source_id)
         if not adapter:
             raise ValueError(f"Data source not found: {source_id}")
-        return await adapter.execute_query(query, params)
+        return await adapter.execute_query(query, params or {})
 
     async def test_all(self) -> dict[str, bool]:
         results = {}
@@ -109,3 +109,22 @@ def create_default_registry() -> DataSourceRegistry:
         pass
 
     return registry
+
+
+# ---- 共享单例 ----
+# nodes.py 与 routes.py 必须使用同一个 registry 实例，
+# 否则运行时通过 POST /sources/register 注册的数据源在查询时找不到
+
+_shared_registry: Optional[DataSourceRegistry] = None
+
+
+def get_shared_registry() -> DataSourceRegistry:
+    """获取全局共享的注册表单例。
+
+    首次调用时懒加载默认数据源；后续调用返回同一实例，
+    保证 API 层注册的数据源在 agent 查询时可见。
+    """
+    global _shared_registry
+    if _shared_registry is None:
+        _shared_registry = create_default_registry()
+    return _shared_registry

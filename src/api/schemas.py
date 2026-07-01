@@ -14,6 +14,7 @@ class QueryRequest(BaseModel):
 
 
 class QueryStageInfo(BaseModel):
+    """查询流水线中单个阶段的执行状态信息。"""
     stage: str
     status: str
     detail: str = ""
@@ -38,16 +39,19 @@ class QueryResponse(BaseModel):
 
 
 class SourceInfo(BaseModel):
+    """单个数据源的基本信息。"""
     source_id: str
     source_type: str
     connected: bool = False
 
 
 class SourceListResponse(BaseModel):
+    """数据源列表响应。"""
     sources: list[SourceInfo]
 
 
 class SourceSchemaResponse(BaseModel):
+    """数据源 Schema 查询响应。"""
     source_id: str
     source_type: str
     schema_text: str
@@ -55,6 +59,7 @@ class SourceSchemaResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
+    """服务健康检查响应。"""
     status: str
     llm_configured: bool
     rag_loaded: bool
@@ -89,6 +94,7 @@ class TokenResponse(BaseModel):
 
 
 class ToastType(str, Enum):
+    """前端 Toast 通知类型枚举。"""
     SUCCESS = "success"
     ERROR = "error"
     INFO = "info"

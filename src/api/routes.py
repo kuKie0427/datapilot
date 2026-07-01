@@ -10,7 +10,7 @@ from .schemas import (
     HealthResponse, RegisterSourceRequest, LoginRequest, TokenResponse,
 )
 from ..agent import run_pipeline
-from ..datasources import create_default_registry, DataSourceRegistry
+from ..datasources import DataSourceRegistry, get_shared_registry
 from ..config import config
 from ..rag_store import RAGStore
 from ..auth import (
@@ -18,21 +18,21 @@ from ..auth import (
     create_access_token,
     RBACManager,
     User,
+    require_permission,
 )
-from ..auth.rbac import check_permission
 
 router = APIRouter()
 
-# 共享的注册表
-_registry: DataSourceRegistry = None
+# RAG 单例（registry 已由 datasources.get_shared_registry 统一管理）
 _rag: RAGStore = None
 
 
 def _get_registry() -> DataSourceRegistry:
-    global _registry
-    if _registry is None:
-        _registry = create_default_registry()
-    return _registry
+    """获取共享的数据源注册表单例。
+
+    与 agent/nodes.py 使用同一实例，保证运行时注册的数据源在查询时可见。
+    """
+    return get_shared_registry()
 
 
 def _get_rag() -> RAGStore:
@@ -104,17 +104,26 @@ async def login(req: LoginRequest):
 
 
 def _verify_password(plain: str, hashed: str) -> bool:
-    """校验密码哈希。支持 bcrypt 与开发用的明文（前缀 plain:）。"""
+    """校验密码哈希。支持 bcrypt 与开发用的明文（前缀 plain:）。
+
+    plain: 前缀的明文哈希仅在 DEBUG 模式下接受，生产模式直接拒绝，
+    避免默认存储的 dev-admin 凭据在生产环境被滥用。
+    """
+    import os
+    import hmac as _hmac
+    debug_mode = os.getenv("DEBUG", "false").lower() in ("1", "true", "yes")
+
+    if hashed.startswith("plain:"):
+        # plain: 前缀仅开发模式可用；生产部署应清除所有 plain: 前缀的哈希
+        if not debug_mode:
+            return False
+        return _hmac.compare_digest(hashed.encode(), f"plain:{plain}".encode())
     try:
-        if hashed.startswith("plain:"):
-            # 仅开发模式可用；生产部署应清除所有 plain: 前缀的哈希
-            return hashed == f"plain:{plain}"
         import bcrypt
         return bcrypt.checkpw(plain.encode(), hashed.encode())
     except ImportError:
-        # bcrypt 未装时退化为常量时间比较（仅用于无法装 bcrypt 的环境）
-        import hmac as _hmac
-        return _hmac.compare_digest(plain.encode(), hashed.encode())
+        # bcrypt 未装时无法安全校验 bcrypt 哈希，直接拒绝（不退化为不安全的明文比较）
+        return False
 
 
 @router.post("/query", response_model=QueryResponse)
@@ -209,7 +218,7 @@ async def query_stream(req: QueryRequest, user: User = Depends(get_current_user)
             yield f"data: {json.dumps(step, ensure_ascii=False)}\n\n"
             await asyncio.sleep(0.01)
 
-        # 发送最终结果
+        # 发送最终结果（字段需与前端 DataPilot-Frontend-v1.html 对齐）
         final = {
             "type": "final",
             "success": result.get("success", False),
@@ -218,6 +227,10 @@ async def query_stream(req: QueryRequest, user: User = Depends(get_current_user)
             "chart_spec": result.get("chart_spec"),
             "error": result.get("error", "") or result.get("execution_error", ""),
             "total_time_ms": result.get("total_time_ms", 0.0),
+            "session_id": session_id,
+            "output_type": result.get("output_type", "table"),
+            "intent": result.get("intent", "unknown"),
+            "rewritten_question": result.get("rewritten_question"),
         }
         yield f"data: {json.dumps(final, ensure_ascii=False)}\n\n"
 
@@ -269,11 +282,11 @@ async def get_source_schema(source_id: str, user: User = Depends(get_current_use
 
 
 @router.post("/sources/register", response_model=SourceInfo)
-async def register_source(req: RegisterSourceRequest, user: User = Depends(get_current_user)):
+async def register_source(
+    req: RegisterSourceRequest,
+    user: User = Depends(require_permission("datasource:*", "admin")),
+):
     """在运行时注册新的数据源（需要 admin 权限）。"""
-    # 注册数据源属于管理操作，要求 admin
-    if not await check_permission(user, "datasource:*", "admin"):
-        raise HTTPException(status_code=403, detail="Admin permission required to register data source")
     registry = _get_registry()
 
     if req.source_type == "sql":
@@ -314,15 +327,34 @@ async def register_source(req: RegisterSourceRequest, user: User = Depends(get_c
 
 
 @router.post("/sources/csv/upload", response_model=SourceInfo)
-async def upload_csv(file: UploadFile = File(...), user: User = Depends(get_current_user)):
-    """上传 CSV 文件并注册为数据源（需要登录）。"""
+async def upload_csv(
+    file: UploadFile = File(...),
+    user: User = Depends(require_permission("datasource:*", "admin")),
+):
+    """上传 CSV 文件并注册为数据源（需要 admin 权限）。"""
     import os
     upload_dir = config.datasource.csv_upload_dir
     os.makedirs(upload_dir, exist_ok=True)
 
-    filename = file.filename
-    filepath = os.path.join(upload_dir, filename)
+    # 防路径遍历：仅取文件名部分，丢弃任何目录片段
+    filename = os.path.basename(file.filename or "")
+    if not filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    # 校验扩展名
+    if not filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only .csv files are allowed")
+
+    # 限制文件大小（100MB），防止 DoS
+    max_size = 100 * 1024 * 1024
     content = await file.read()
+    if len(content) > max_size:
+        raise HTTPException(status_code=413, detail="File too large (max 100MB)")
+
+    filepath = os.path.join(upload_dir, filename)
+    # 最终路径校验：确保仍在 upload_dir 内
+    if not os.path.abspath(filepath).startswith(os.path.abspath(upload_dir) + os.sep):
+        raise HTTPException(status_code=400, detail="Invalid file path")
+
     with open(filepath, "wb") as f:
         f.write(content)
 

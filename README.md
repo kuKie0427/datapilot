@@ -34,11 +34,11 @@
   ┌──────────────────▼────────────────┐
   │  Tool Calling + Adapter Pattern    │
   │                                    │
-  │  ┌─────────┐ ┌──────┐ ┌─────────┐ │
-  │  │ SQL Adp │ │ CSV  │ │ API Adp │ │
-  │  │SQLite/  │ │Pan-  │ │RESTful  │ │
-  │  │MySQL    │ │das   │ │         │ │
-  │  └─────────┘ └──────┘ └─────────┘ │
+  │  ┌─────────────┐ ┌──────┐ ┌─────────┐ │
+  │  │ SQL Adapter │ │ CSV  │ │ API Adp │ │
+  │  │SQLite/      │ │Pan-  │ │RESTful  │ │
+  │  │MySQL        │ │das   │ │         │ │
+  │  └─────────────┘ └──────┘ └─────────┘ │
   │                                    │
   │  ┌────────────┐  ┌──────────────┐  │
   │  │ Chart Tool │  │ Sandbox Exec │  │
@@ -94,6 +94,7 @@ docker run -p 8000:8000 -v /var/run/docker.sock:/var/run/docker.sock datapilot
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
+| POST | `/api/v1/auth/login` | 登录获取 JWT |
 | POST | `/api/v1/query` | 提交自然语言查询，返回完整结果 |
 | POST | `/api/v1/query/stream` | SSE 流式返回查询过程 |
 | GET | `/api/v1/sources` | 列出所有数据源 |
@@ -111,16 +112,21 @@ datapilot/
 │   │   ├── app.py              # 应用工厂
 │   │   ├── routes.py           # API 路由
 │   │   └── schemas.py          # Pydantic 模型
+│   ├── auth/                   # JWT 认证 + RBAC 角色权限模型 + 行级过滤 + 列脱敏
 │   ├── agent/                  # LangGraph 四阶段管线
 │   │   ├── graph.py            # 状态机构建
 │   │   ├── nodes.py            # 节点实现
 │   │   └── state.py            # 状态定义
+│   ├── glossary/               # 业务术语字典（YAML 配置）
+│   ├── semantic/               # 语义层（指标定义 + Plan 编译为 SQL）
+│   ├── session/                # 多轮对话会话管理
 │   ├── datasources/            # 多数据源适配器
 │   │   ├── base.py             # 抽象适配器
 │   │   ├── sql_source.py       # SQL (SQLite/MySQL)
 │   │   ├── csv_source.py       # CSV
 │   │   ├── api_source.py       # REST API
 │   │   └── registry.py         # 数据源注册表
+│   ├── security/               # SQL 安全校验（白名单 + 强制 LIMIT + 行级过滤注入）
 │   ├── sandbox/                # Docker 沙箱引擎
 │   │   └── executor.py         # 隔离执行 + 错误栈裁剪
 │   ├── tools/                  # Tool Calling
@@ -161,11 +167,29 @@ python -m src.evaluate --execution
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
+| `DEBUG` | `false` | 生产环境设为 false；本地开发可设 true |
+| `ALLOW_NO_PASSWORD_LOGIN` | `false` | 仅在 DEBUG=true 时可设 true，完全跳过密码校验（仅本地联调） |
+| `JWT_SECRET` | `please-change-this-...` | JWT 签名密钥，生产环境必须为强随机字符串（>=32 字符） |
+| `JWT_TTL` | `3600` | JWT 有效期（秒） |
+| `CORS_ORIGINS` | （空） | 逗号分隔的前端域名白名单；留空则允许所有源但不携带凭证 |
+| `LLM_PROVIDER` | `openai` | LLM 提供方 |
 | `LLM_API_KEY` | — | LLM API 密钥 |
 | `LLM_BASE_URL` | `https://api.deepseek.com/v1` | LLM API 地址 |
 | `LLM_MODEL` | `deepseek-chat` | 模型名称 |
-| `SANDBOX_ENABLED` | `true` | 是否启用 Docker 沙箱 |
-| `SANDBOX_IMAGE` | `python:3.11-slim` | 沙箱镜像 |
-| `SANDBOX_TIMEOUT` | `30` | 沙箱超时（秒） |
+| `LLM_TEMPERATURE` | `0.0` | LLM 采样温度 |
+| `LLM_MAX_TOKENS` | `2000` | LLM 最大生成 token 数 |
+| `CONSISTENCY_N` | `3` | 自一致性采样次数 |
+| `CONSISTENCY_TEMP` | `0.3` | 自一致性采样温度 |
+| `MAX_RETRIES` | `2` | 错误驱动重试的最大次数 |
+| `SQLITE_PATH` | `datasets/spider_databases/database` | 默认 SQLite 数据库目录 |
 | `MYSQL_HOST` | `localhost` | MySQL 主机 |
+| `MYSQL_PORT` | `3306` | MySQL 端口 |
+| `MYSQL_USER` | `root` | MySQL 用户名 |
+| `MYSQL_PASSWORD` | （空） | MySQL 密码 |
 | `MYSQL_DATABASE` | — | MySQL 数据库 |
+| `API_SOURCES` | `[]` | API 数据源（JSON 字符串，可选） |
+| `SANDBOX_ENABLED` | `true` | 是否启用 Docker 沙箱 |
+| `SANDBOX_IMAGE` | `datapilot-sandbox:latest` | 沙箱镜像 |
+| `SANDBOX_TIMEOUT` | `30` | 沙箱超时（秒） |
+| `SANDBOX_MEMORY` | `256m` | 沙箱内存限制 |
+| `SANDBOX_CPU` | `0.5` | 沙箱 CPU 限制 |

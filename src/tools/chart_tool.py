@@ -149,7 +149,7 @@ class ChartTool:
                     "name": s["name"],
                     "type": chart_type,
                     "data": s["data"],
-                    "itemStyle": {"borderRadius": chart_type == "bar" and [4, 4, 0, 0] or 0},
+                    "itemStyle": {"borderRadius": [4, 4, 0, 0] if chart_type == "bar" else 0},
                 }
                 for s in series_list
             ],

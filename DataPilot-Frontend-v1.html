@@ -1380,12 +1380,15 @@
     }
 
     function updateThinkingText(stage, detail) {
+      // 键名需与后端 QueryStage 枚举值（src/agent/state.py）保持一致
       const map = {
-        intent: '正在理解问题…',
-        rag: '正在检索相似案例…',
-        schema: '正在感知 Schema…',
-        generation: '正在生成查询…',
-        execution: '正在执行并校验…'
+        query_rewrite: '正在改写问题…',
+        intent_parsing: '正在理解问题…',
+        rag_retrieval: '正在检索相似案例…',
+        schema_aware_generation: '正在感知 Schema…',
+        semantic_compile: '正在编译语义层…',
+        execution_validation: '正在执行并校验…',
+        error_correction: '正在纠错…'
       };
       document.getElementById('thinkingText').textContent = map[stage] || detail || '正在处理…';
     }

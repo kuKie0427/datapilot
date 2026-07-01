@@ -15,9 +15,14 @@ if [ ! -d "$VENV_DIR" ]; then
     $PYTHON -m venv "$VENV_DIR"
 fi
 
-# 3. 安装依赖
-echo "Installing dependencies..."
-./"$VENV_DIR"/bin/pip install -q -r requirements.txt
+# 3. 安装依赖（优先使用 uv sync 基于 uv.lock 锁定版本，回退到 pip）
+if command -v uv &> /dev/null; then
+    echo "Installing dependencies with uv sync..."
+    uv sync
+else
+    echo "uv not found, falling back to pip install..."
+    ./"$VENV_DIR"/bin/pip install -q -r requirements.txt
+fi
 
 # 4. 检查 API key
 if [ -z "${LLM_API_KEY:-${DEEPSEEK_API_KEY:-}}" ]; then

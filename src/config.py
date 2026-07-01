@@ -40,7 +40,7 @@ class RAGConfig:
 class SandboxConfig:
     """Docker 沙箱配置。"""
     enabled: bool = field(default_factory=lambda: os.getenv("SANDBOX_ENABLED", "true").lower() == "true")
-    docker_image: str = field(default_factory=lambda: os.getenv("SANDBOX_IMAGE", "python:3.11-slim"))
+    docker_image: str = field(default_factory=lambda: os.getenv("SANDBOX_IMAGE", "datapilot-sandbox:latest"))
     timeout: int = field(default_factory=lambda: int(os.getenv("SANDBOX_TIMEOUT", "30")))
     memory_limit: str = field(default_factory=lambda: os.getenv("SANDBOX_MEMORY", "256m"))
     cpu_limit: float = field(default_factory=lambda: float(os.getenv("SANDBOX_CPU", "0.5")))

@@ -1,3 +1,5 @@
+"""RAG 向量存储 —— 基于 sentence-transformers 的 few-shot 检索。"""
+
 import os
 import json
 import pickle

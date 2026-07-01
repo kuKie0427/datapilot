@@ -150,7 +150,8 @@ def _compile_simple(metric: Metric, plan: QueryPlan, dialect: str) -> str:
     group_parts = [d for d in plan.dimensions]
     group_clause = ", ".join(group_parts) if group_parts else ""
 
-    # ORDER BY（校验后使用，防注入）
+    # ORDER BY
+    # 校验后使用，防注入
     raw_order = plan.order_by or (f"{metric.name} DESC" if not plan.dimensions else "")
     order_clause = _safe_order_by(raw_order)
 

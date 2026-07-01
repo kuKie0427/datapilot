@@ -1,11 +1,17 @@
 """SQL 数据源适配器 —— 支持 SQLite 和 MySQL。"""
 
 import os
+import re
 import time
 import sqlite3
 import asyncio
 from typing import Optional
 from .base import BaseAdapter, SchemaInfo, TableInfo, ColumnInfo, QueryResult
+
+
+# 表名白名单：仅允许字母数字下划线，与 csv_source.py 保持一致
+# 防止恶意表名（如 foo); DROP TABLE bar--）在 PRAGMA / DESCRIBE 中被执行
+_SAFE_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 class SQLAdapter(BaseAdapter):
@@ -98,6 +104,9 @@ class SQLAdapter(BaseAdapter):
         table_names = [r[0] for r in cur.fetchall()]
 
         for tname in table_names:
+            # 表名白名单校验：跳过含非法字符的表名，防止 PRAGMA 注入
+            if not _SAFE_NAME_RE.match(tname):
+                continue
             cols = []
             cur = conn.execute(f"PRAGMA table_info({tname});")
             for row in cur.fetchall():
@@ -129,6 +138,9 @@ class SQLAdapter(BaseAdapter):
         tables = []
 
         for tname in table_names:
+            # 表名白名单校验：跳过含非法字符的表名，防止 DESCRIBE 注入
+            if not _SAFE_NAME_RE.match(tname):
+                continue
             cursor.execute(f"DESCRIBE `{tname}`;")
             cols = []
             for row in cursor.fetchall():
